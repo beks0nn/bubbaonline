@@ -80,9 +80,10 @@
 
         .row {
             display: grid;
-            grid-template-columns: 1fr 100px 1fr;
+            grid-template-columns: 200px 80px 1fr;
             padding: 12px 16px;
             border-bottom: 1px solid #242424;
+            gap: 19%;
         }
 
         .row:last-child {
@@ -94,10 +95,6 @@
             font-size: 13px;
             text-transform: uppercase;
             background: #151515;
-        }
-
-        .level {
-            text-align: right;
         }
 
         .killer {
@@ -122,10 +119,11 @@
         <h1 id="char-name">Loading...</h1>
         <div class="meta" id="char-meta"></div>
 
+        <h1>Death List</h1>
         <div class="table">
             <div class="row header">
                 <div>Date</div>
-                <div class="level">Level</div>
+                <div>Level</div>
                 <div>Killed by</div>
             </div>
 

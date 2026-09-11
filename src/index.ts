@@ -78,9 +78,12 @@ async function upsertCharacterFromDeath(db: D1Database, name: string, level: num
 	return row.id;
 }
 
-function checkAuth(request: Request, env: Env): boolean {
+function checkAuth(request: Request, env: Env, url: URL): boolean {
 	const header = request.headers.get("Authorization");
-	return header === `Bearer ${env.OTCLIENT_SECRET}`;
+	if (header === `Bearer ${env.OTCLIENT_SECRET}`) return true;
+
+	const queryKey = url.searchParams.get("key");
+	return queryKey === env.OTCLIENT_SECRET;
 }
 
 export default {
@@ -128,7 +131,7 @@ export default {
 		// --- POST endpoints (require secret) ---
 
 		if (pathname === "/api/online" && request.method === "POST") {
-			if (!checkAuth(request, env)) return new Response("Unauthorized", { status: 401 });
+			if (!checkAuth(request, env, url)) return new Response("Unauthorized", { status: 401 });
 
 			const payload = await request.json<OnlinePayload>();
 
@@ -145,7 +148,7 @@ export default {
 		}
 
 		if (pathname === "/api/deathlist" && request.method === "POST") {
-			if (!checkAuth(request, env)) return new Response("Unauthorized", { status: 401 });
+			if (!checkAuth(request, env, url)) return new Response("Unauthorized", { status: 401 });
 
 			const payload = await request.json<DeathlistPayload>();
 			const { name, deaths } = parseDeathlistText(payload.text);
@@ -172,7 +175,7 @@ export default {
 		// --- PATCH endpoints (require secret) ---
 
 		if (pathname === "/api/characters/vocation" && request.method === "PATCH") {
-			if (!checkAuth(request, env)) return new Response("Unauthorized", { status: 401 });
+			if (!checkAuth(request, env, url)) return new Response("Unauthorized", { status: 401 });
 
 			const payload = await request.json<{ name: string; vocation: string }>();
 
