@@ -1,32 +1,135 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Hello, World!</title>
-	</head>
-	<body>
-		<h1 id="heading"></h1>
-		<p>This page comes from a static asset stored at `public/index.html` as configured in `wrangler.jsonc`.</p>
-		<button id="button" type="button">Fetch a random UUID</button>
-		<output id="random" for="button"></output>
-		<script>
-			fetch('/message')
-				.then((resp) => resp.text())
-				.then((text) => {
-					const h1 = document.getElementById('heading');
-					h1.textContent = text;
-				});
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BubbaOnline</title>
 
-			const button = document.getElementById("button");
-			button.addEventListener("click", () => {
-				fetch('/random')
-					.then((resp) => resp.text())
-					.then((text) => {
-						const random = document.getElementById('random');
-						random.textContent = text;
-					});
-			});
-		</script>
-	</body>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #eee;
+        }
+
+        header {
+            border-bottom: 1px solid #2a2a2a;
+            background: #181818;
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        nav {
+            display: flex;
+            gap: 6px;
+        }
+
+        nav a {
+            color: #aaa;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        nav a:hover,
+        nav a.active {
+            color: #fff;
+            background: #292929;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        h1 {
+            margin: 0 0 24px;
+            font-size: 28px;
+        }
+
+        .table {
+            width: 100%;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #181818;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 100px 160px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #242424;
+        }
+
+        .row:last-child {
+            border-bottom: none;
+        }
+
+        .row.header {
+            color: #888;
+            font-size: 13px;
+            text-transform: uppercase;
+            background: #151515;
+        }
+
+        .level {
+            text-align: right;
+        }
+
+        .vocation {
+            text-align: right;
+            color: #aaa;
+        }
+
+        .character {
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">BubbaOnline</div>
+
+            <nav>
+                <a href="/" class="active">Online</a>
+                <a href="/characters">Characters</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <h1>Online Players</h1>
+
+		<div class="table">
+			<div class="row header">
+				<div>Character</div>
+				<div class="level">Level</div>
+				<div class="vocation">Vocation</div>
+			</div>
+		</div>
+    </main>
+
+	<script src="/app.js"></script>
+</body>
 </html>
