@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Characters - BubbaOnline"></title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #eee;
+        }
+
+        header {
+            border-bottom: 1px solid #2a2a2a;
+            background: #181818;
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        nav {
+            display: flex;
+            gap: 6px;
+        }
+
+        nav a {
+            color: #aaa;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        nav a:hover,
+        nav a.active {
+            color: #fff;
+            background: #292929;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        h1 {
+            margin: 0 0 20px;
+            font-size: 28px;
+        }
+
+        .search {
+            width: 100%;
+            padding: 11px 14px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #181818;
+            color: #eee;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .search:focus {
+            border-color: #555;
+        }
+
+        .table {
+            width: 100%;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #181818;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 100px 160px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #242424;
+        }
+
+        .row:last-child {
+            border-bottom: none;
+        }
+
+        .row.header {
+            color: #888;
+            font-size: 13px;
+            text-transform: uppercase;
+            background: #151515;
+        }
+
+        .level {
+            text-align: right;
+        }
+
+        .vocation {
+            text-align: right;
+            color: #aaa;
+        }
+
+        .character {
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">BubbaOnline</div>
+
+            <nav>
+                <a href="/">Online</a>
+                <a href="/characters" class="active">Characters</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <h1>Characters</h1>
+
+        <input
+            id="search"
+            class="search"
+            type="search"
+            placeholder="Search characters..."
+            autocomplete="off"
+        >
+
+        <div class="table">
+            <div class="row header">
+                <div>Character</div>
+                <div class="level">Level</div>
+                <div class="vocation">Vocation</div>
+            </div>
+
+            <div id="character-list"></div>
+        </div>
+    </main>
+
+    <script src="/characters.js"></script>
+</body>
+</html>
