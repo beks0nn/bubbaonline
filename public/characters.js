@@ -1,15 +1,21 @@
-const characters = [
-    { name: "Zaki", level: 178, vocation: "Knight" },
-    { name: "Basilisk", level: 133, vocation: "Sorcerer" },
-    { name: "Druid", level: 131, vocation: "Druid" },
-    { name: "Bksonn", level: 112, vocation: "Sorcerer" },
-    { name: "Alex the DragonSlayer", level: 113, vocation: "Knight" },
-    { name: "Dirty Prostate Exam Hand", level: 25, vocation: "Paladin" },
-    { name: "Great fireball rune", level: 45, vocation: "Sorcerer" }
-];
-
 const list = document.querySelector("#character-list");
 const search = document.querySelector("#search");
+
+let characters = [];
+
+async function loadCharacters() {
+    try {
+        const response = await fetch("/api/characters");
+        if (!response.ok) throw new Error(`API returned ${response.status}`);
+        characters = await response.json();
+    } catch (err) {
+        list.innerHTML = `<div class="row"><div>Failed to load characters.</div></div>`;
+        console.error("Failed to load characters:", err);
+        return;
+    }
+
+    renderCharacters();
+}
 
 function renderCharacters() {
     const query = search.value.trim().toLowerCase();
@@ -28,7 +34,7 @@ function renderCharacters() {
         row.className = "row";
 
         row.innerHTML = `
-            <div class="character">${character.name}</div>
+            <a class="character" href="/characters/${encodeURIComponent(character.name)}">${character.name}</a>
             <div class="level">${character.level}</div>
             <div class="vocation">${character.vocation}</div>
         `;
@@ -39,4 +45,4 @@ function renderCharacters() {
 
 search.addEventListener("input", renderCharacters);
 
-renderCharacters();
+loadCharacters();

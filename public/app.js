@@ -1,23 +1,31 @@
-const players = [
-    { name: "Zaki", level: 178, vocation: "Knight" },
-    { name: "Basilisk", level: 133, vocation: "Sorcerer" },
-    { name: "Druid", level: 131, vocation: "Druid" },
-    { name: "Bksonn", level: 999, vocation: "Sorcerer" }
-];
-
 const table = document.querySelector(".table");
 
-players
-    .sort((a, b) => b.level - a.level)
-    .forEach(player => {
-        const row = document.createElement("div");
+async function loadOnline() {
+    try {
+        const response = await fetch("/api/online");
+        if (!response.ok) throw new Error(`API returned ${response.status}`);
+        const players = await response.json();
+        renderPlayers(players);
+    } catch (err) {
+        console.error("Failed to load online players:", err);
+    }
+}
 
-        row.className = "row";
-        row.innerHTML = `
-            <div class="character">${player.name}</div>
-            <div class="level">${player.level}</div>
-            <div class="vocation">${player.vocation}</div>
-        `;
+function renderPlayers(players) {
+    players
+        .sort((a, b) => b.level - a.level)
+        .forEach(player => {
+            const row = document.createElement("div");
 
-        table.appendChild(row);
-    });
+            row.className = "row";
+            row.innerHTML = `
+                <a class="character" href="/characters/${encodeURIComponent(player.name)}">${player.name}</a>
+                <div class="level">${player.level}</div>
+                <div class="vocation">${player.vocation}</div>
+            `;
+
+            table.appendChild(row);
+        });
+}
+
+loadOnline();

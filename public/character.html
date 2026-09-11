@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BubbaOnline</title>
+    <title>Character - BubbaOnline</title>
 
     <style>
         * {
@@ -61,8 +61,13 @@
         }
 
         h1 {
-            margin: 0 0 24px;
+            margin: 0 0 4px;
             font-size: 28px;
+        }
+
+        .meta {
+            color: #999;
+            margin-bottom: 24px;
         }
 
         .table {
@@ -75,7 +80,7 @@
 
         .row {
             display: grid;
-            grid-template-columns: 1fr 100px 160px;
+            grid-template-columns: 1fr 100px 1fr;
             padding: 12px 16px;
             border-bottom: 1px solid #242424;
         }
@@ -95,23 +100,9 @@
             text-align: right;
         }
 
-        .vocation {
-            text-align: right;
+        .killer {
             color: #aaa;
         }
-
-        .character {
-            color: #fff;
-        }
-
-		a.character {
-    		text-decoration: none;
-		}
-
-		a.character:hover {
-			text-decoration: underline;
-		}
-		
     </style>
 </head>
 
@@ -121,24 +112,27 @@
             <div class="logo">BubbaOnline</div>
 
             <nav>
-                <a href="/" class="active">Online</a>
+                <a href="/">Online</a>
                 <a href="/characters">Characters</a>
             </nav>
         </div>
     </header>
 
     <main>
-        <h1>Online Players</h1>
+        <h1 id="char-name">Loading...</h1>
+        <div class="meta" id="char-meta"></div>
 
-		<div class="table">
-			<div class="row header">
-				<div>Character</div>
-				<div class="level">Level</div>
-				<div class="vocation">Vocation</div>
-			</div>
-		</div>
+        <div class="table">
+            <div class="row header">
+                <div>Date</div>
+                <div class="level">Level</div>
+                <div>Killed by</div>
+            </div>
+
+            <div id="death-list"></div>
+        </div>
     </main>
 
-	<script src="/app.js"></script>
+    <script src="/character.js"></script>
 </body>
 </html>
