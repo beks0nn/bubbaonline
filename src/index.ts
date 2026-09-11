@@ -113,31 +113,109 @@ export default {
 		// --- POST endpoints (require secret) ---
 
 		if (pathname === "/api/online" && request.method === "POST") {
-			if (!checkAuth(request, env, url)) return new Response("Unauthorized", { status: 401 });
+			if (!checkAuth(request, env, url)) {
+				return new Response("Unauthorized", { status: 401 });
+			}
 
 			const payload = await request.json<OnlinePayload>();
 			const now = new Date().toISOString();
 
-			const statements: D1PreparedStatement[] = [env.DB.prepare(`DELETE FROM online`)];
+			// Get current online players and their stored levels.
+			const { results: currentRows } = await env.DB
+				.prepare(`
+					SELECT o.character_name, c.level
+					FROM online o
+					JOIN characters c ON c.name = o.character_name
+				`)
+				.all<{ character_name: string; level: number }>();
 
-			for (const player of payload.players) {
-				statements.push(
-					env.DB.prepare(
-						`INSERT INTO characters (name, level, vocation, first_seen, last_seen)
-						VALUES (?, ?, 'Unknown', ?, ?)
-						ON CONFLICT(name) DO UPDATE SET
-						level = excluded.level,
-						last_seen = excluded.last_seen`
-					).bind(player.name, player.level, now, now)
-				);
-				statements.push(
-					env.DB.prepare(`INSERT INTO online (character_name, since) VALUES (?, ?)`).bind(player.name, now)
-				);
+			const currentOnline = new Map(
+				currentRows.map(row => [row.character_name, row.level])
+			);
+
+			const newOnline = new Set(
+				payload.players.map(player => player.name)
+			);
+
+			const statements: D1PreparedStatement[] = [];
+
+			let added = 0;
+			let removed = 0;
+			let levelChanges = 0;
+
+			// Players who went offline.
+			for (const row of currentRows) {
+				if (!newOnline.has(row.character_name)) {
+					statements.push(
+						env.DB
+							.prepare(`DELETE FROM online WHERE character_name = ?`)
+							.bind(row.character_name)
+					);
+
+					removed++;
+				}
 			}
 
-			await env.DB.batch(statements);
+			// Players who are online now.
+			for (const player of payload.players) {
+				const previousLevel = currentOnline.get(player.name);
 
-			return Response.json({ ok: true, count: payload.players.length });
+				if (previousLevel === undefined) {
+					// Newly online player.
+					statements.push(
+						env.DB.prepare(`
+							INSERT INTO characters
+								(name, level, vocation, first_seen, last_seen)
+							VALUES (?, ?, 'Unknown', ?, ?)
+							ON CONFLICT(name) DO UPDATE SET
+								level = excluded.level
+						`).bind(
+							player.name,
+							player.level,
+							now,
+							now
+						)
+					);
+
+					statements.push(
+						env.DB
+							.prepare(`
+								INSERT INTO online (character_name, since)
+								VALUES (?, ?)
+							`)
+							.bind(player.name, now)
+					);
+
+					added++;
+				} else if (previousLevel !== player.level) {
+					// Character is already online but has levelled up/down.
+					statements.push(
+						env.DB.prepare(`
+							UPDATE characters
+							SET level = ?
+							WHERE name = ?
+						`).bind(
+							player.level,
+							player.name
+						)
+					);
+
+					levelChanges++;
+				}
+			}
+
+			if (statements.length > 0) {
+				await env.DB.batch(statements);
+			}
+
+			return Response.json({
+				ok: true,
+				count: payload.players.length,
+				added,
+				removed,
+				levelChanges,
+				writes: statements.length
+			});
 		}
 
 		if (pathname === "/api/deathlist" && request.method === "POST") {
