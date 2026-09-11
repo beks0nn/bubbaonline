@@ -40,24 +40,6 @@ function parseDeathlistText(text: string): { name: string; deaths: { date: strin
 	return { name, deaths };
 }
 
-async function upsertOnlineCharacter(db: D1Database, name: string, level: number): Promise<number> {
-	const now = new Date().toISOString();
-
-	await db
-		.prepare(
-			`INSERT INTO characters (name, level, vocation, first_seen, last_seen)
-			 VALUES (?, ?, 'Unknown', ?, ?)
-			 ON CONFLICT(name) DO UPDATE SET
-			   level = excluded.level,
-			   last_seen = excluded.last_seen`
-		)
-		.bind(name, level, now, now)
-		.run();
-
-	const row = await db.prepare(`SELECT id FROM characters WHERE name = ?`).bind(name).first<{ id: number }>();
-	if (!row) throw new Error(`Failed to upsert character: ${name}`);
-	return row.id;
-}
 
 async function upsertCharacterFromDeath(db: D1Database, name: string, level: number): Promise<number> {
 	const now = new Date().toISOString();
@@ -96,9 +78,9 @@ export default {
 		if (pathname === "/api/online" && request.method === "GET") {
 			const { results } = await env.DB.prepare(
 				`SELECT c.name, c.level, c.vocation
-				 FROM online o
-				 JOIN characters c ON c.id = o.character_id
-				 ORDER BY c.level DESC`
+				FROM online o
+				JOIN characters c ON c.name = o.character_name
+				ORDER BY c.level DESC`
 			).all();
 			return Response.json(results);
 		}
@@ -134,15 +116,26 @@ export default {
 			if (!checkAuth(request, env, url)) return new Response("Unauthorized", { status: 401 });
 
 			const payload = await request.json<OnlinePayload>();
+			const now = new Date().toISOString();
 
-			await env.DB.prepare(`DELETE FROM online`).run();
+			const statements: D1PreparedStatement[] = [env.DB.prepare(`DELETE FROM online`)];
 
 			for (const player of payload.players) {
-				const characterId = await upsertOnlineCharacter(env.DB, player.name, player.level);
-				await env.DB.prepare(`INSERT INTO online (character_id, since) VALUES (?, ?)`)
-					.bind(characterId, new Date().toISOString())
-					.run();
+				statements.push(
+					env.DB.prepare(
+						`INSERT INTO characters (name, level, vocation, first_seen, last_seen)
+						VALUES (?, ?, 'Unknown', ?, ?)
+						ON CONFLICT(name) DO UPDATE SET
+						level = excluded.level,
+						last_seen = excluded.last_seen`
+					).bind(player.name, player.level, now, now)
+				);
+				statements.push(
+					env.DB.prepare(`INSERT INTO online (character_name, since) VALUES (?, ?)`).bind(player.name, now)
+				);
 			}
+
+			await env.DB.batch(statements);
 
 			return Response.json({ ok: true, count: payload.players.length });
 		}
