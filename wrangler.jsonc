@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "cool-shadow-ba69",
+	"name": "bubbaonline",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-09-07",
 	"compatibility_flags": [
