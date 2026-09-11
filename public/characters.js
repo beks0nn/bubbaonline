@@ -1,5 +1,6 @@
 const list = document.querySelector("#character-list");
 const search = document.querySelector("#search");
+const countEl = document.querySelector("#character-count");
 
 let characters = [];
 
@@ -25,6 +26,8 @@ function renderCharacters() {
             character.name.toLowerCase().includes(query)
         )
         .sort((a, b) => b.level - a.level);
+
+    countEl.textContent = `(${filtered.length})`;
 
     list.innerHTML = "";
 

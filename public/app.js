@@ -1,4 +1,5 @@
 const table = document.querySelector(".table");
+const countEl = document.querySelector("#online-count");
 
 async function loadOnline() {
     try {
@@ -12,6 +13,8 @@ async function loadOnline() {
 }
 
 function renderPlayers(players) {
+    countEl.textContent = `(${players.length})`;
+
     players
         .sort((a, b) => b.level - a.level)
         .forEach(player => {

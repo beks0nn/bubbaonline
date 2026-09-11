@@ -123,8 +123,15 @@
         a.character {
             text-decoration: none;
         }
+        
         a.character:hover {
             text-decoration: underline;
+        }
+
+        #character-count {
+            color: #888;
+            font-weight: 400;
+            font-size: 18px;
         }
     </style>
 </head>
@@ -142,7 +149,7 @@
     </header>
 
     <main>
-        <h1>Characters</h1>
+        <h1>Characters <span id="character-count"></span></h1>
 
         <input
             id="search"
