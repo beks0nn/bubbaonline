@@ -1,11 +1,14 @@
-const table = document.querySelector(".table");
+const list = document.querySelector("#online-list");
+const search = document.querySelector("#search");
 const countEl = document.querySelector("#online-count");
+
+let players = [];
 
 async function loadOnline() {
     try {
         const response = await fetch("/api/online");
         if (!response.ok) throw new Error(`API returned ${response.status}`);
-        const players = await response.json();
+        players = await response.json();
         renderPlayers(players);
     } catch (err) {
         console.error("Failed to load online players:", err);
@@ -13,10 +16,15 @@ async function loadOnline() {
 }
 
 function renderPlayers(players) {
-    countEl.textContent = `(${players.length})`;
+    const query = search.value.trim().toLowerCase();
+    const filtered = players
+        .filter(player => player.name.toLowerCase().includes(query))
+        .sort((a, b) => b.level - a.level);
 
-    players
-        .sort((a, b) => b.level - a.level)
+    countEl.textContent = `(${filtered.length})`;
+    list.innerHTML = "";
+
+    filtered
         .forEach(player => {
             const row = document.createElement("div");
 
@@ -27,8 +35,10 @@ function renderPlayers(players) {
                 <div class="vocation">${player.vocation}</div>
             `;
 
-            table.appendChild(row);
+            list.appendChild(row);
         });
 }
+
+search.addEventListener("input", () => renderPlayers(players));
 
 loadOnline();

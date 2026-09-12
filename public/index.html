@@ -61,8 +61,24 @@
         }
 
         h1 {
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             font-size: 28px;
+        }
+
+        .search {
+            width: 100%;
+            padding: 11px 14px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #181818;
+            color: #eee;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .search:focus {
+            border-color: #555;
         }
 
         .table {
@@ -93,11 +109,16 @@
 
         .level {
             text-align: right;
+            color: #aaa;
         }
 
         .vocation {
             text-align: right;
             color: #aaa;
+        }
+
+        .data-list .row:nth-child(even) {
+            background: #1c1c1c;
         }
 
         .character {
@@ -136,12 +157,22 @@
     <main>
         <h1>Online Players <span id="online-count"></span></h1>
 
+        <input
+            id="search"
+            class="search"
+            type="search"
+            placeholder="Search online players..."
+            autocomplete="off"
+        >
+
 		<div class="table">
 			<div class="row header">
 				<div>Character</div>
 				<div class="level">Level</div>
 				<div class="vocation">Vocation</div>
 			</div>
+
+            <div id="online-list" class="data-list"></div>
 		</div>
     </main>
 
