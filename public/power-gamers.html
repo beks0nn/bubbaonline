@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Gamers - BubbaOnline</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #111; color: #eee; }
+        header { border-bottom: 1px solid #2a2a2a; background: #181818; }
+        .header-inner {
+            max-width: 1100px; margin: 0 auto; padding: 18px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .logo { font-size: 22px; font-weight: 700; }
+        nav { display: flex; flex-wrap: wrap; gap: 6px; }
+        nav a { color: #aaa; text-decoration: none; padding: 8px 12px; border-radius: 6px; }
+        nav a:hover, nav a.active { color: #fff; background: #292929; }
+        main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+        h1 { margin: 0 0 8px; font-size: 28px; }
+        .description { color: #aaa; line-height: 1.5; margin: 0 0 12px; }
+        .note { color: #999; font-size: 13px; line-height: 1.5; }
+        .table { width: 100%; border: 1px solid #2a2a2a; border-radius: 8px; overflow-x: auto; background: #181818; }
+        table { width: 100%; min-width: 620px; border-collapse: collapse; }
+        th, td { padding: 12px 16px; border-bottom: 1px solid #242424; text-align: left; }
+        th { color: #888; font-size: 13px; text-transform: uppercase; font-weight: 400; background: #151515; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:nth-child(even) { background: #1c1c1c; }
+        .number { text-align: right; font-variant-numeric: tabular-nums; }
+        .experience.positive { color: #9bd7a6; }
+        .experience.negative { color: #f28b82; }
+        .experience.neutral { color: #aaa; }
+        a.character { color: #fff; text-decoration: none; }
+        a.character:hover { text-decoration: underline; }
+        .message { color: #aaa; }
+        #updated { min-height: 20px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">BubbaOnline</div>
+            <nav aria-label="Main navigation">
+                <a href="/">Online</a>
+                <a href="/characters">Characters</a>
+                <a href="/top-frags">Top Frags</a>
+                <a href="/power-gamers" class="active" aria-current="page">Power Gamers</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        <h1>Power Gamers</h1>
+        <p class="description">Top 10 by estimated net EXP in the last 24 hours.</p>
+        <p class="note">Observed gains minus estimated death losses.<br>
+            Death estimates assume promotion and average blessings.</p>
+        <p id="updated" class="note" role="status">Loading rankings...</p>
+        <div class="table">
+            <table aria-label="Power Gamers in the last 24 hours">
+                <thead>
+                    <tr>
+                        <th scope="col">Rank</th>
+                        <th scope="col">Character</th>
+                        <th scope="col" class="number">Level</th>
+                        <th scope="col" class="number">Levels gained</th>
+                        <th scope="col" class="number">Est. net EXP</th>
+                    </tr>
+                </thead>
+                <tbody id="power-list"></tbody>
+            </table>
+        </div>
+    </main>
+    <script src="/power-gamers.js"></script>
+</body>
+</html>

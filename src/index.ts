@@ -1,3 +1,11 @@
+import { experienceAtLevel } from "./experience";
+import { estimateDeathLoss, reconcileDeathObservations } from "./death-loss";
+import { getPowerGamers } from "./power-gamers";
+
+interface WorkerEnv extends Env {
+	OTCLIENT_SECRET: string;
+}
+
 interface OnlinePlayer {
 	name: string;
 	level: number;
@@ -87,7 +95,7 @@ async function upsertCharacterFromDeath(db: D1Database, name: string, level: num
 	return row.id;
 }
 
-function checkAuth(request: Request, env: Env, url: URL): boolean {
+function checkAuth(request: Request, env: WorkerEnv, url: URL): boolean {
 	const header = request.headers.get("Authorization");
 	if (header === `Bearer ${env.OTCLIENT_SECRET}`) return true;
 
@@ -113,15 +121,53 @@ export default {
 		}
 
 		if (pathname === "/api/characters" && request.method === "GET") {
-			const { results } = await env.DB.prepare(`SELECT name, level, vocation FROM characters ORDER BY level DESC`).all();
+			const { results } = await env.DB.prepare(`
+				SELECT c.name, c.level, c.vocation, c.last_online,
+					o.character_name IS NOT NULL AS is_online
+				FROM characters c
+				LEFT JOIN online o ON o.character_name = c.name
+				ORDER BY c.level DESC
+			`).all();
 			return Response.json(results);
+		}
+
+		if (pathname === "/api/top-frags" && request.method === "GET") {
+			const playersOnly = url.searchParams.get("playersOnly") === "true";
+			const { results } = await env.DB.prepare(`
+				SELECT killer, COUNT(*) AS frags
+				FROM deaths
+				WHERE level >= 8
+					AND (? = 0 OR (killer NOT LIKE 'a %' AND killer NOT LIKE 'an %'))
+				GROUP BY killer
+				ORDER BY frags DESC, killer ASC
+				LIMIT 15
+			`).bind(playersOnly ? 1 : 0).all<{ killer: string; frags: number }>();
+			return Response.json(results);
+		}
+
+		if (pathname === "/api/power-gamers" && request.method === "GET") {
+			// One shared cache key per origin, regardless of visitor query parameters.
+			const cacheKey = new Request(new URL("/api/power-gamers?model=net-v1", url).toString());
+			const cached = await caches.default.match(cacheKey);
+			if (cached) return cached;
+
+			const ranking = await getPowerGamers(env.DB, new Date());
+			const response = Response.json(ranking, {
+				headers: { "Cache-Control": "public, max-age=0, s-maxage=300" },
+			});
+			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+			return response;
 		}
 
 		const charMatch = pathname.match(/^\/api\/characters\/([^/]+)$/);
 		if (charMatch && request.method === "GET") {
 			const name = decodeURIComponent(charMatch[1]);
 			const character = await env.DB.prepare(
-				`SELECT id, name, level, vocation, first_seen, last_seen FROM characters WHERE name = ?`
+				`SELECT c.id, c.name, c.level, c.vocation, c.first_seen, c.last_seen, c.last_online,
+					o.character_name IS NOT NULL AS is_online
+				FROM characters c
+				LEFT JOIN online o ON o.character_name = c.name
+				WHERE c.name = ?`
 			)
 				.bind(name)
 				.first();
@@ -129,12 +175,14 @@ export default {
 			if (!character) return new Response("Not found", { status: 404 });
 
 			const { results: deaths } = await env.DB.prepare(
-				`SELECT date, level, killer FROM deaths WHERE character_id = ? ORDER BY date DESC`
+				`SELECT date, level, killer, after_level, after_observed_at FROM deaths WHERE character_id = ? ORDER BY date DESC`
 			)
 				.bind(character.id)
-				.all();
+				.all<Death & { after_level: number | null; after_observed_at: string | null }>();
 
-			return Response.json({ ...character, deaths });
+			return Response.json({ ...character, deaths: deaths.map(death => ({ ...death,
+				estimated_loss: estimateDeathLoss(death.level, death.killer, death.after_level),
+			})) });
 		}
 
 		// --- POST endpoints (require secret) ---
@@ -145,26 +193,36 @@ export default {
 			}
 
 			const payload = await request.json<OnlinePayload>();
+			if (!Array.isArray(payload?.players) || payload.players.some(player =>
+				!player || typeof player.name !== "string" || !player.name.trim() ||
+				!Number.isSafeInteger(player.level) || player.level < 1 ||
+				!Number.isSafeInteger(experienceAtLevel(player.level))
+			) || new Set(payload.players.map(player => player.name)).size !== payload.players.length) {
+				return new Response("Players must have unique names and valid positive integer levels", { status: 400 });
+			}
 			const now = new Date().toISOString();
 
 			// Get current online players and their stored levels.
-			const { results: currentRows } = await env.DB
+			const { results: currentRows, meta: currentMeta } = await env.DB
 				.prepare(`
-					SELECT o.character_name, c.level
+					SELECT o.character_name, c.level, c.tracked_experience
 					FROM online o
 					JOIN characters c ON c.name = o.character_name
 				`)
-				.all<{ character_name: string; level: number }>();
+				.all<{ character_name: string; level: number; tracked_experience: number | null }>();
 
 			const currentOnline = new Map(
 				currentRows.map(row => [row.character_name, row.level])
 			);
+			const untracked = new Set(currentRows.filter(row => row.tracked_experience === null)
+				.map(row => row.character_name));
 
 			const newOnline = new Set(
 				payload.players.map(player => player.name)
 			);
 
 			const statements: D1PreparedStatement[] = [];
+			const changedNames: string[] = [];
 
 			let added = 0;
 			let removed = 0;
@@ -173,6 +231,12 @@ export default {
 			// Players who went offline.
 			for (const row of currentRows) {
 				if (!newOnline.has(row.character_name)) {
+					// Approximate logout time, accurate to the online polling interval.
+					statements.push(
+						env.DB
+							.prepare(`UPDATE characters SET last_online = ? WHERE name = ?`)
+							.bind(now, row.character_name)
+					);
 					statements.push(
 						env.DB
 							.prepare(`DELETE FROM online WHERE character_name = ?`)
@@ -188,18 +252,23 @@ export default {
 				const previousLevel = currentOnline.get(player.name);
 
 				if (previousLevel === undefined) {
+					changedNames.push(player.name);
 					// Newly online player.
 					statements.push(
 						env.DB.prepare(`
 							INSERT INTO characters
-								(name, level, vocation, first_seen, last_seen)
-							VALUES (?, ?, 'Unknown', ?, ?)
+								(name, level, vocation, first_seen, last_seen, tracked_experience, level_observed_at)
+							VALUES (?, ?, 'Unknown', ?, ?, ?, ?)
 							ON CONFLICT(name) DO UPDATE SET
-								level = excluded.level
+								level = excluded.level,
+								tracked_experience = excluded.tracked_experience,
+								level_observed_at = excluded.level_observed_at
 						`).bind(
 							player.name,
 							player.level,
 							now,
+							now,
+							experienceAtLevel(player.level),
 							now
 						)
 					);
@@ -214,25 +283,39 @@ export default {
 					);
 
 					added++;
-				} else if (previousLevel !== player.level) {
-					// Character is already online but has levelled up/down.
+				} else if (previousLevel !== player.level || untracked.has(player.name)) {
+					changedNames.push(player.name);
+					// Track changes (or establish the first baseline) in the existing write.
 					statements.push(
 						env.DB.prepare(`
 							UPDATE characters
-							SET level = ?
+							SET level = ?, tracked_experience = ?, level_observed_at = ?
 							WHERE name = ?
 						`).bind(
 							player.level,
+							experienceAtLevel(player.level),
+							now,
 							player.name
 						)
 					);
 
-					levelChanges++;
+					if (previousLevel !== player.level) levelChanges++;
 				}
 			}
 
+			let rowsRead = currentMeta.rows_read;
+			let rowsWritten = currentMeta.rows_written;
 			if (statements.length > 0) {
-				await env.DB.batch(statements);
+				const results = await env.DB.batch(statements);
+				for (const result of results) {
+					rowsRead += result.meta.rows_read;
+					rowsWritten += result.meta.rows_written;
+				}
+			}
+			if (changedNames.length > 0) {
+				const metrics = await reconcileDeathObservations(env.DB, changedNames, now);
+				rowsRead += metrics.rowsRead;
+				rowsWritten += metrics.rowsWritten;
 			}
 
 			return Response.json({
@@ -241,7 +324,9 @@ export default {
 				added,
 				removed,
 				levelChanges,
-				writes: statements.length
+				writes: statements.length,
+				rowsRead,
+				rowsWritten,
 			});
 		}
 
@@ -284,6 +369,9 @@ export default {
 				inserted += result.meta.changes;
 			}
 
+			if (newDeaths.length > 0) {
+				await reconcileDeathObservations(env.DB, [name], new Date().toISOString());
+			}
 			return Response.json({ ok: true, name, inserted, total: deaths.length });
 		}
 
@@ -321,6 +409,11 @@ export default {
 			return env.ASSETS.fetch(new Request(url, request));
 		}
 
+		if (pathname === "/top-frags") {
+			url.pathname = "/top-frags";
+			return env.ASSETS.fetch(new Request(url, request));
+		}
+
 		if (/^\/characters\/[^/]+$/.test(pathname)) {
 			url.pathname = "/character";
 			return env.ASSETS.fetch(new Request(url, request));
@@ -328,4 +421,4 @@ export default {
 
 		return env.ASSETS.fetch(request);
 	},
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<WorkerEnv>;

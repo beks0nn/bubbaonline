@@ -1,6 +1,20 @@
 const nameEl = document.querySelector("#char-name");
 const metaEl = document.querySelector("#char-meta");
+const lastOnlineEl = document.querySelector("#char-last-online");
 const deathList = document.querySelector("#death-list");
+const expNumbers = new Intl.NumberFormat("en-GB");
+
+function renderDeathLoss(death) {
+    const cell = document.createElement("div");
+    cell.className = "loss";
+    const estimate = death.estimated_loss;
+    if (!estimate) {
+        cell.textContent = "Unknown";
+        return cell;
+    }
+    cell.textContent = `~${expNumbers.format(Math.round((estimate.min + estimate.max) / 2))}`;
+    return cell;
+}
 
 async function loadCharacter() {
     const name = decodeURIComponent(location.pathname.split("/characters/")[1]);
@@ -24,6 +38,8 @@ async function loadCharacter() {
 function renderCharacter(character) {
     document.title = `${character.name} - BubbaOnline`;
     nameEl.textContent = character.name;
+    lastOnlineEl.textContent = `Last online: ${formatLastOnline(character)}`;
+    lastOnlineEl.title = "Approximate time detected offline; dates use your local time zone.";
     metaEl.textContent = `Level ${character.level} · ${character.vocation}`;
 
     deathList.innerHTML = "";
@@ -48,11 +64,15 @@ function renderCharacter(character) {
             hour12: false,
         });
 
-        row.innerHTML = `
-            <div>${formatted}</div>
-            <div class="level">${death.level}</div>
-            <div class="killer">${death.killer}</div>
-        `;
+        const dateCell = document.createElement("div");
+        dateCell.textContent = formatted;
+        const levelCell = document.createElement("div");
+        levelCell.className = "level";
+        levelCell.textContent = death.level;
+        const killerCell = document.createElement("div");
+        killerCell.className = "killer";
+        killerCell.textContent = death.killer;
+        row.append(dateCell, levelCell, killerCell, renderDeathLoss(death));
 
         deathList.appendChild(row);
     }

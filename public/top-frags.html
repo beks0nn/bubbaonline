@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top Frags - BubbaOnline</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #eee;
+        }
+
+        header {
+            border-bottom: 1px solid #2a2a2a;
+            background: #181818;
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        nav {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #aaa;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        nav a:hover,
+        nav a.active {
+            color: #fff;
+            background: #292929;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: 28px;
+        }
+
+        .description {
+            color: #999;
+            margin: 0 0 16px;
+        }
+
+        .filter {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            color: #aaa;
+        }
+
+        .table {
+            width: 100%;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #181818;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 80px 1fr 100px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #242424;
+        }
+
+        .row:last-child {
+            border-bottom: none;
+        }
+
+        .row.header {
+            color: #888;
+            font-size: 13px;
+            text-transform: uppercase;
+            background: #151515;
+        }
+
+        .data-list .row:nth-child(even) {
+            background: #1c1c1c;
+        }
+
+        .frags {
+            text-align: right;
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">BubbaOnline</div>
+
+            <nav>
+                <a href="/">Online</a>
+                <a href="/characters">Characters</a>
+                <a href="/top-frags" class="active">Top Frags</a>
+                <a href="/power-gamers">Power Gamers</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <h1>Top Frags</h1>
+        <p class="description">Most recorded kills in player death lists (level 8 and above).</p>
+
+        <label class="filter">
+            <input id="players-only" type="checkbox">
+            Players only
+        </label>
+
+        <div class="table">
+            <div class="row header">
+                <div>Rank</div>
+                <div>Killer</div>
+                <div class="frags">Frags</div>
+            </div>
+
+            <div id="frag-list" class="data-list"></div>
+        </div>
+    </main>
+
+    <script src="/top-frags.js"></script>
+</body>
+</html>

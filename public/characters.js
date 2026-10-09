@@ -42,6 +42,12 @@ function renderCharacters() {
             <div class="vocation">${character.vocation}</div>
         `;
 
+        const lastOnline = document.createElement("div");
+        lastOnline.className = "last-online";
+        lastOnline.textContent = formatLastOnline(character);
+        lastOnline.title = "Approximate time detected offline; dates use your local time zone.";
+        row.appendChild(lastOnline);
+
         list.appendChild(row);
     }
 }
