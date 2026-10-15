@@ -53,6 +53,8 @@ beforeAll(async () => {
 beforeEach(async () => {
     await caches.default.delete("https://example.com/api/power-gamers?model=net-v1");
     await env.DB.batch([
+        env.DB.prepare("DELETE FROM highscore_entries"),
+        env.DB.prepare("DELETE FROM ingestion_state"),
         env.DB.prepare("DELETE FROM level_drops"),
         env.DB.prepare("DELETE FROM level_changes"),
         env.DB.prepare("DELETE FROM online"),
@@ -176,14 +178,14 @@ describe("Power Gamers", () => {
         expect((await rankings()).players[0].levels_gained).toBe(2);
     });
 
-    it("adds no reads or writes to unchanged online polls", async () => {
+    it("only writes the feed timestamp on unchanged online polls", async () => {
         const players = [{ name: "Legacy", level: 20 }];
         await observe(players, "2026-10-01T09:00:00Z");
-        const original = await env.DB.prepare(`SELECT o.character_name, c.level
-            FROM online o JOIN characters c ON c.name = o.character_name`).all();
+        const before = await env.DB.prepare("SELECT * FROM characters").all();
         expect(await observe(players, "2026-10-01T09:01:00Z")).toEqual(expect.objectContaining({
-            writes: 0, rowsWritten: 0, rowsRead: original.meta.rows_read,
+            writes: 1, rowsWritten: 1,
         }));
+        expect((await env.DB.prepare("SELECT * FROM characters").all()).results).toEqual(before.results);
     });
 
     it("prunes old gain history in bounded batches while keeping the ranking window", async () => {
@@ -217,7 +219,7 @@ describe("Power Gamers", () => {
             { name: "Deathonly", level: 80 }];
         await observe(players, "2026-10-01T10:00:00Z");
         expect((await rankings()).players).toEqual([]);
-        expect(await observe(players, "2026-10-01T10:01:00Z")).toMatchObject({ writes: 0 });
+        expect(await observe(players, "2026-10-01T10:01:00Z")).toMatchObject({ writes: 1 });
         expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM level_changes").first("count")).toBe(0);
         await observe(players.map(player => ({ ...player, level: player.level + 1 })), "2026-10-01T10:02:00Z");
         expect((await rankings()).players).toHaveLength(3);
@@ -238,7 +240,7 @@ describe("Power Gamers", () => {
         ]);
         // Unchanged observations must not award the same gain twice.
         expect(await observe([{ name: "High", level: 101 }, { name: "Low", level: 25 },
-            { name: "Recovery", level: 50 }], "2026-10-01T12:01:00Z")).toMatchObject({ writes: 0 });
+            { name: "Recovery", level: 50 }], "2026-10-01T12:01:00Z")).toMatchObject({ writes: 1 });
         expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM level_changes").first("count")).toBe(3);
     });
 

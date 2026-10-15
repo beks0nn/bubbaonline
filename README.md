@@ -1,10 +1,19 @@
 # bubbaonline
 
 Last online is shown on the character list and profiles. Online players show
-"Online now"; offline players show when they were detected going offline, in the
-visitor's local time zone. This is approximate and depends on the online polling
-interval. Characters without a recorded offline transition show "Unknown".
-Historical timestamps and imported deaths are not used to infer online activity.
+"Online now"; offline players show the latest imported Last online timestamp or
+detected offline transition, in the visitor's local time zone. Polling timestamps
+are approximate. Missing dates show "Unknown"; imported deaths do not imply activity.
+
+See [API.md](API.md) for the new character profile and skill highscore imports,
+JSON examples, refresh guidance and response formats. Profile imports replace
+the removed `PATCH /api/characters/vocation` endpoint. The existing online and
+deathlist imports are still required.
+
+Highscores (`/highscores`) displays the imported rankings for Magic level, Sword,
+Club, Shielding and Distance, with links to character profiles and the capture
+time of each ranking. The page checks the selected skill every five minutes while
+visible and reuses recently viewed skills to avoid unnecessary requests.
 
 Apply database migrations before deploying the Worker:
 
@@ -17,7 +26,7 @@ Migration `0003_last_online.sql` adds a nullable column without backfilling hist
 Tracking begins when the updated Worker receives online updates.
 
 Power Gamers (`/power-gamers`) ranks the top 10 estimated net EXP totals over a rolling
-24 hours. The first online observation establishes a baseline without awarding
+24 hours. The first online or profile level observation establishes a baseline without awarding
 EXP, including for existing and death-only characters. Upward changes record the
 difference between the two cumulative EXP thresholds. A level loss lowers the
 baseline; regaining those levels counts as a new gross gain. Baselines survive
@@ -40,9 +49,10 @@ positive changes. Apply all pending migrations before deploying the updated Work
 
 The free-tier-conscious implementation:
 
-- Reuses the existing online character read and level update. Unchanged heartbeats
-  add no reads or writes for Power Gamers. Initial baselines need a one-time write
-  for already-online characters. Level losses add no gain-history rows.
+- Uses bulk imports and indexed character lookups. Unchanged newer online
+  heartbeats write one feed timestamp, not every character (about 1,440 timestamp
+  writes/day at one-minute intervals). Exact timestamp retries write nothing.
+  Initial baselines need a one-time character write. Level losses add no gain-history rows.
 - Adds one gain-history row and its timestamp index entry per observed upward
   change. Index entries and eventual deletions also count as D1 writes.
 - Reads indexed 24-hour gain and death windows on cache misses. Both sets of
@@ -56,7 +66,8 @@ The free-tier-conscious implementation:
   bounding cleanup work without a separate scheduled Worker. Old rows can remain
   during inactivity; subsequent gains resume cleanup. Baselines are retained.
 - Returns actual D1 `rowsRead` and `rowsWritten` totals from online updates, including
-  the initial read and batched writes. The older `writes` field counts statements.
+  batched writes and death correlation. `writes` counts import statements that
+  actually wrote rows.
 
 Cloudflare's documented free D1 allowance is 5 million rows read/day and 100,000
 rows written/day, with 500 MB per database and 5 GB total account storage. Workers
@@ -66,7 +77,7 @@ other projects, not guaranteed capacity for this application. Current references
 [D1 limits](https://developers.cloudflare.com/d1/platform/limits/),
 [Workers limits](https://developers.cloudflare.com/workers/platform/limits/).
 
-Death entries show an estimated loss range using stock TFS 1.2's
+Death entries show the midpoint of an estimated loss range using stock TFS 1.2's
 `deathLosePercent = -1` formula, assuming promotion and allowing 0–5 blessings.
 Article-prefixed killers (`a ...`/`an ...`) are treated as monsters; other names
 also allow the stock PvP unfair-fight multiplier of 20–100%. This convention is
@@ -98,8 +109,17 @@ Exact EXP and blessing counts are not inferred. The net range reflects uncertain
 in death losses only; gross level-based gains remain approximate too.
 
 Migration `0007_death_ranking_index.sql` indexes death timestamps for the rolling
-window, adding an index write per new death without new heartbeat writes. The
+window, adding an index write per new death. The
 ranking still uses the five-minute cache, with a new cache key to avoid serving
 old gross-only responses after deployment. Deaths use their recorded time, while
 gains use observation time. Existing deaths in the last 24 hours can contribute
 losses even when gain tracking has only recently started.
+
+Migration `0008_profiles_highscores.sql` adds nullable profile metadata, feed
+timestamps and current skill rankings. Characters discovered only through skills
+have an unknown character level; skill values never feed EXP calculations.
+Newer profiles record per-character freshness, while unchanged newer highscore
+snapshots update only one feed timestamp. Stale activity is ignored across the
+online and profile feeds. Profiles and skills appear on character pages.
+The highscore GET endpoint uses the same five-minute, per-data-centre
+[Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/) approach.

@@ -39,8 +39,20 @@ function renderCharacter(character) {
     document.title = `${character.name} - BubbaOnline`;
     nameEl.textContent = character.name;
     lastOnlineEl.textContent = `Last online: ${formatLastOnline(character)}`;
-    lastOnlineEl.title = "Approximate time detected offline; dates use your local time zone.";
-    metaEl.textContent = `Level ${character.level} · ${character.vocation}`;
+    lastOnlineEl.title = "Dates use your local time zone.";
+    metaEl.textContent = `Level ${character.level ?? "Unknown"} · ${character.vocation}`;
+    const profileEl = document.querySelector("#char-profile");
+    const details = [character.city && `City: ${character.city}`,
+        character.profile_observed_at && `Guild: ${character.guild ?? "None"}`,
+        character.sex && `Sex: ${character.sex === "male" ? "Male" : "Female"}`,
+        character.account_type && (character.account_type === "premium" ? "Premium Account" : "Free Account")].filter(Boolean);
+    profileEl.textContent = details.join(" · ");
+    profileEl.hidden = details.length === 0;
+    const skillsEl = document.querySelector("#char-skills");
+    const labels = { magic: "Magic level", sword: "Sword", club: "Club", shielding: "Shielding", distance: "Distance" };
+    const skills = character.skills ?? [];
+    skillsEl.textContent = skills.map(entry => `${labels[entry.skill]}: ${entry.value} (#${entry.rank})`).join(" · ");
+    skillsEl.hidden = skills.length === 0;
 
     deathList.innerHTML = "";
 

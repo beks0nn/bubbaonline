@@ -1,18 +1,10 @@
-import { experienceAtLevel } from "./experience";
+import { importOnline, importProfiles, importHighscores, getHighscores } from "./ingestion";
+import { InputError, skill } from "./import-validation";
 import { estimateDeathLoss, reconcileDeathObservations } from "./death-loss";
 import { getPowerGamers } from "./power-gamers";
 
 interface WorkerEnv extends Env {
 	OTCLIENT_SECRET: string;
-}
-
-interface OnlinePlayer {
-	name: string;
-	level: number;
-}
-
-interface OnlinePayload {
-	players: OnlinePlayer[];
 }
 
 interface DeathlistPayload {
@@ -96,6 +88,7 @@ async function upsertCharacterFromDeath(db: D1Database, name: string, level: num
 }
 
 function checkAuth(request: Request, env: WorkerEnv, url: URL): boolean {
+	if (!env.OTCLIENT_SECRET) return false;
 	const header = request.headers.get("Authorization");
 	if (header === `Bearer ${env.OTCLIENT_SECRET}`) return true;
 
@@ -122,7 +115,8 @@ export default {
 
 		if (pathname === "/api/characters" && request.method === "GET") {
 			const { results } = await env.DB.prepare(`
-				SELECT c.name, c.level, c.vocation, c.last_online,
+				SELECT c.name, NULLIF(c.level, 0) AS level, c.vocation, c.last_online,
+					c.city, c.guild, c.sex, c.account_type, c.profile_observed_at,
 					o.character_name IS NOT NULL AS is_online
 				FROM characters c
 				LEFT JOIN online o ON o.character_name = c.name
@@ -159,11 +153,29 @@ export default {
 			return response;
 		}
 
+		if (pathname === "/api/highscores" && request.method === "GET") {
+			try {
+				const category = skill(url.searchParams.get("skill"));
+				const cacheKey = new Request(new URL(`/api/highscores?skill=${category}`, url).toString());
+				const cached = await caches.default.match(cacheKey);
+				if (cached) return cached;
+				const response = Response.json(await getHighscores(env.DB, category), {
+					headers: { "Cache-Control": "public, max-age=0, s-maxage=300" },
+				});
+				ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+				return response;
+			} catch (error) {
+				if (error instanceof InputError) return Response.json({ error: error.message }, { status: 400 });
+				throw error;
+			}
+		}
+
 		const charMatch = pathname.match(/^\/api\/characters\/([^/]+)$/);
 		if (charMatch && request.method === "GET") {
 			const name = decodeURIComponent(charMatch[1]);
 			const character = await env.DB.prepare(
-				`SELECT c.id, c.name, c.level, c.vocation, c.first_seen, c.last_seen, c.last_online,
+				`SELECT c.id, c.name, NULLIF(c.level, 0) AS level, c.vocation, c.first_seen, c.last_seen, c.last_online,
+					c.city, c.guild, c.sex, c.account_type, c.profile_observed_at,
 					o.character_name IS NOT NULL AS is_online
 				FROM characters c
 				LEFT JOIN online o ON o.character_name = c.name
@@ -180,154 +192,33 @@ export default {
 				.bind(character.id)
 				.all<Death & { after_level: number | null; after_observed_at: string | null }>();
 
-			return Response.json({ ...character, deaths: deaths.map(death => ({ ...death,
+			const { results: skills } = await env.DB.prepare(`
+				SELECT h.skill, h.rank, h.value, s.observed_at FROM highscore_entries h
+				JOIN ingestion_state s ON s.feed = 'highscores:' || h.skill
+				WHERE h.character_name = ? ORDER BY h.skill`).bind(name).all();
+
+			return Response.json({ ...character, skills, deaths: deaths.map(death => ({ ...death,
 				estimated_loss: estimateDeathLoss(death.level, death.killer, death.after_level),
 			})) });
 		}
 
 		// --- POST endpoints (require secret) ---
 
-		if (pathname === "/api/online" && request.method === "POST") {
-			if (!checkAuth(request, env, url)) {
-				return new Response("Unauthorized", { status: 401 });
-			}
-
-			const payload = await request.json<OnlinePayload>();
-			if (!Array.isArray(payload?.players) || payload.players.some(player =>
-				!player || typeof player.name !== "string" || !player.name.trim() ||
-				!Number.isSafeInteger(player.level) || player.level < 1 ||
-				!Number.isSafeInteger(experienceAtLevel(player.level))
-			) || new Set(payload.players.map(player => player.name)).size !== payload.players.length) {
-				return new Response("Players must have unique names and valid positive integer levels", { status: 400 });
-			}
-			const now = new Date().toISOString();
-
-			// Get current online players and their stored levels.
-			const { results: currentRows, meta: currentMeta } = await env.DB
-				.prepare(`
-					SELECT o.character_name, c.level, c.tracked_experience
-					FROM online o
-					JOIN characters c ON c.name = o.character_name
-				`)
-				.all<{ character_name: string; level: number; tracked_experience: number | null }>();
-
-			const currentOnline = new Map(
-				currentRows.map(row => [row.character_name, row.level])
-			);
-			const untracked = new Set(currentRows.filter(row => row.tracked_experience === null)
-				.map(row => row.character_name));
-
-			const newOnline = new Set(
-				payload.players.map(player => player.name)
-			);
-
-			const statements: D1PreparedStatement[] = [];
-			const changedNames: string[] = [];
-
-			let added = 0;
-			let removed = 0;
-			let levelChanges = 0;
-
-			// Players who went offline.
-			for (const row of currentRows) {
-				if (!newOnline.has(row.character_name)) {
-					// Approximate logout time, accurate to the online polling interval.
-					statements.push(
-						env.DB
-							.prepare(`UPDATE characters SET last_online = ? WHERE name = ?`)
-							.bind(now, row.character_name)
-					);
-					statements.push(
-						env.DB
-							.prepare(`DELETE FROM online WHERE character_name = ?`)
-							.bind(row.character_name)
-					);
-
-					removed++;
+		if (["/api/online", "/api/characters", "/api/highscores"].includes(pathname) && request.method === "POST") {
+			if (!checkAuth(request, env, url)) return new Response("Unauthorized", { status: 401 });
+			try {
+				const payload = await request.json();
+				if (pathname === "/api/online") return Response.json(await importOnline(env.DB, payload));
+				if (pathname === "/api/characters") return Response.json(await importProfiles(env.DB, payload));
+				const result = await importHighscores(env.DB, payload);
+				if (!result.ignored) ctx.waitUntil(caches.default.delete(new URL(`/api/highscores?skill=${result.skill}`, url).toString()));
+				return Response.json(result);
+			} catch (error) {
+				if (error instanceof InputError || error instanceof SyntaxError) {
+					return Response.json({ error: error.message }, { status: 400 });
 				}
+				throw error;
 			}
-
-			// Players who are online now.
-			for (const player of payload.players) {
-				const previousLevel = currentOnline.get(player.name);
-
-				if (previousLevel === undefined) {
-					changedNames.push(player.name);
-					// Newly online player.
-					statements.push(
-						env.DB.prepare(`
-							INSERT INTO characters
-								(name, level, vocation, first_seen, last_seen, tracked_experience, level_observed_at)
-							VALUES (?, ?, 'Unknown', ?, ?, ?, ?)
-							ON CONFLICT(name) DO UPDATE SET
-								level = excluded.level,
-								tracked_experience = excluded.tracked_experience,
-								level_observed_at = excluded.level_observed_at
-						`).bind(
-							player.name,
-							player.level,
-							now,
-							now,
-							experienceAtLevel(player.level),
-							now
-						)
-					);
-
-					statements.push(
-						env.DB
-							.prepare(`
-								INSERT INTO online (character_name, since)
-								VALUES (?, ?)
-							`)
-							.bind(player.name, now)
-					);
-
-					added++;
-				} else if (previousLevel !== player.level || untracked.has(player.name)) {
-					changedNames.push(player.name);
-					// Track changes (or establish the first baseline) in the existing write.
-					statements.push(
-						env.DB.prepare(`
-							UPDATE characters
-							SET level = ?, tracked_experience = ?, level_observed_at = ?
-							WHERE name = ?
-						`).bind(
-							player.level,
-							experienceAtLevel(player.level),
-							now,
-							player.name
-						)
-					);
-
-					if (previousLevel !== player.level) levelChanges++;
-				}
-			}
-
-			let rowsRead = currentMeta.rows_read;
-			let rowsWritten = currentMeta.rows_written;
-			if (statements.length > 0) {
-				const results = await env.DB.batch(statements);
-				for (const result of results) {
-					rowsRead += result.meta.rows_read;
-					rowsWritten += result.meta.rows_written;
-				}
-			}
-			if (changedNames.length > 0) {
-				const metrics = await reconcileDeathObservations(env.DB, changedNames, now);
-				rowsRead += metrics.rowsRead;
-				rowsWritten += metrics.rowsWritten;
-			}
-
-			return Response.json({
-				ok: true,
-				count: payload.players.length,
-				added,
-				removed,
-				levelChanges,
-				writes: statements.length,
-				rowsRead,
-				rowsWritten,
-			});
 		}
 
 		if (pathname === "/api/deathlist" && request.method === "POST") {
@@ -375,32 +266,7 @@ export default {
 			return Response.json({ ok: true, name, inserted, total: deaths.length });
 		}
 
-		// --- PATCH endpoints (require secret) ---
-
-		if (pathname === "/api/characters/vocation" && request.method === "PATCH") {
-			if (!checkAuth(request, env, url)) return new Response("Unauthorized", { status: 401 });
-
-			const payload = await request.json<{ name: string; vocation: string }>();
-
-			if (!payload.name || !payload.vocation) {
-				return new Response("Missing name or vocation", { status: 400 });
-			}
-
-			const VALID_VOCATIONS = ["Knight", "Paladin", "Sorcerer", "Druid"];
-			if (!VALID_VOCATIONS.includes(payload.vocation)) {
-				return new Response(`Invalid vocation. Must be one of: ${VALID_VOCATIONS.join(", ")}`, { status: 400 });
-			}
-
-			const result = await env.DB.prepare(`UPDATE characters SET vocation = ? WHERE name = ?`)
-				.bind(payload.vocation, payload.name)
-				.run();
-
-			if (result.meta.changes === 0) {
-				return new Response("Character not found", { status: 404 });
-			}
-
-			return Response.json({ ok: true, name: payload.name, vocation: payload.vocation });
-		}
+		if (pathname.startsWith("/api/")) return new Response("Not found", { status: 404 });
 
 		// --- static page routes ---
 

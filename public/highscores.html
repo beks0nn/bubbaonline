@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highscores - BubbaOnline</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #111; color: #eee; }
+        header { border-bottom: 1px solid #2a2a2a; background: #181818; }
+        .header-inner {
+            max-width: 1100px; margin: 0 auto; padding: 18px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .logo { font-size: 22px; font-weight: 700; }
+        nav { display: flex; flex-wrap: wrap; gap: 6px; }
+        nav a { color: #aaa; text-decoration: none; padding: 8px 12px; border-radius: 6px; }
+        nav a:hover, nav a.active { color: #fff; background: #292929; }
+        main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+        h1 { margin: 0 0 24px; font-size: 28px; }
+        .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+        label { color: #aaa; }
+        select, button {
+            font: inherit; color: #eee; background: #181818;
+            border: 1px solid #444; border-radius: 6px; padding: 9px 12px;
+        }
+        button { cursor: pointer; }
+        button:hover { background: #292929; }
+        :focus-visible { outline: 2px solid #9bd7a6; outline-offset: 3px; }
+        .note { color: #999; font-size: 13px; line-height: 1.5; min-height: 20px; }
+        .table { width: 100%; border: 1px solid #2a2a2a; border-radius: 8px; overflow-x: auto; background: #181818; }
+        table { width: 100%; min-width: 480px; border-collapse: collapse; }
+        th, td { padding: 12px 16px; border-bottom: 1px solid #242424; text-align: left; }
+        th { color: #888; font-size: 13px; text-transform: uppercase; font-weight: 400; background: #151515; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:nth-child(even) { background: #1c1c1c; }
+        .number { text-align: right; font-variant-numeric: tabular-nums; }
+        .vocation, .message { color: #aaa; }
+        a.character { color: #fff; text-decoration: none; }
+        a.character:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">BubbaOnline</div>
+            <nav aria-label="Main navigation">
+                <a href="/">Online</a>
+                <a href="/characters">Characters</a>
+                <a href="/top-frags">Top Frags</a>
+                <a href="/power-gamers">Power Gamers</a>
+                <a href="/highscores" class="active" aria-current="page">Highscores</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        <h1>Highscores</h1>
+        <div class="controls">
+            <label for="skill">Skill</label>
+            <select id="skill">
+                <option value="magic">Magic level</option>
+                <option value="sword">Sword</option>
+                <option value="club">Club</option>
+                <option value="shielding">Shielding</option>
+                <option value="distance">Distance</option>
+            </select>
+            <button id="retry" type="button" hidden>Retry</button>
+        </div>
+        <p id="updated" class="note" role="status">Loading highscores...</p>
+        <div class="table">
+            <table id="highscore-table" aria-label="Magic level highscores">
+                <thead>
+                    <tr>
+                        <th scope="col">Rank</th>
+                        <th scope="col">Character</th>
+                        <th scope="col">Vocation</th>
+                        <th scope="col" id="skill-heading" class="number">Magic level</th>
+                    </tr>
+                </thead>
+                <tbody id="highscore-list"></tbody>
+            </table>
+        </div>
+        <noscript><p>Enable JavaScript to view highscores.</p></noscript>
+    </main>
+    <script src="/highscores.js"></script>
+</body>
+</html>

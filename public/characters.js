@@ -36,16 +36,22 @@ function renderCharacters() {
 
         row.className = "row";
 
-        row.innerHTML = `
-            <a class="character" href="/characters/${encodeURIComponent(character.name)}">${character.name}</a>
-            <div class="level">${character.level}</div>
-            <div class="vocation">${character.vocation}</div>
-        `;
+        const link = document.createElement("a");
+        link.className = "character";
+        link.href = `/characters/${encodeURIComponent(character.name)}`;
+        link.textContent = character.name;
+        const level = document.createElement("div");
+        level.className = "level";
+        level.textContent = character.level ?? "Unknown";
+        const vocation = document.createElement("div");
+        vocation.className = "vocation";
+        vocation.textContent = character.vocation;
+        row.append(link, level, vocation);
 
         const lastOnline = document.createElement("div");
         lastOnline.className = "last-online";
         lastOnline.textContent = formatLastOnline(character);
-        lastOnline.title = "Approximate time detected offline; dates use your local time zone.";
+        lastOnline.title = "Dates use your local time zone.";
         row.appendChild(lastOnline);
 
         list.appendChild(row);
