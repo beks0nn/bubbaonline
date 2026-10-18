@@ -18,6 +18,13 @@
 		"enabled": true
 	},
 	"upload_source_maps": true,
+	"ratelimits": [
+		{
+			"name": "CAST_CONNECTION_LIMITER",
+			"namespace_id": "1001",
+			"simple": { "limit": 20, "period": 60 }
+		}
+	],
 	"d1_databases": [
 		{
 			"binding": "DB",

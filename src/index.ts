@@ -2,6 +2,7 @@ import { importOnline, importProfiles, importHighscores, getHighscores } from ".
 import { InputError, skill } from "./import-validation";
 import { estimateDeathLoss, reconcileDeathObservations } from "./death-loss";
 import { getPowerGamers } from "./power-gamers";
+import { handleCast } from "./cast";
 
 interface WorkerEnv extends Env {
 	OTCLIENT_SECRET: string;
@@ -100,6 +101,8 @@ export default {
 	async fetch(request, env, ctx): Promise<Response> {
 		const url = new URL(request.url);
 		const { pathname } = url;
+
+		if (pathname.startsWith("/api/cast/")) return handleCast(request, env);
 
 		// --- GET endpoints ---
 

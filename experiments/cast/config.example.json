@@ -1,0 +1,7 @@
+{
+  "targetHost": "95.179.145.195",
+  "loginPort": 7171,
+  "gamePort": 7172,
+  "listenPort": 8790,
+  "assetDirectory": "assets/tibia/772"
+}

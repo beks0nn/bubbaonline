@@ -165,3 +165,8 @@ dist
 .env*
 !.env.example
 .wrangler/
+
+# Local cast prototype settings; upstream binaries remain in .cache/.
+experiments/cast/config.local.json
+# Generated browser binaries and game assets; rebuild before deployment.
+public/cast-client/

@@ -38,7 +38,7 @@ green, and zero neutral. Death-only characters are eligible. The top 10 limit is
 applied after net totals are calculated, ordered highest first.
 
 The EXP curve is `(50 * level^3 - 300 * level^2 + 850 * level - 600) / 3`, matching
-the supplied level 1–300 table and extending the same curve above level 300.
+the supplied level 1â€“300 table and extending the same curve above level 300.
 Progress within a level is unknown. Changes are timestamped when detected, so
 changes discovered after a monitoring gap are attributed to that observation,
 not an exact historical time. No history is backfilled at deployment.
@@ -78,9 +78,9 @@ other projects, not guaranteed capacity for this application. Current references
 [Workers limits](https://developers.cloudflare.com/workers/platform/limits/).
 
 Death entries show the midpoint of an estimated loss range using stock TFS 1.2's
-`deathLosePercent = -1` formula, assuming promotion and allowing 0–5 blessings.
+`deathLosePercent = -1` formula, assuming promotion and allowing 0â€“5 blessings.
 Article-prefixed killers (`a ...`/`an ...`) are treated as monsters; other names
-also allow the stock PvP unfair-fight multiplier of 20–100%. This convention is
+also allow the stock PvP unfair-fight multiplier of 20â€“100%. This convention is
 only a heuristic: custom loss rules, monster names, and summons can differ.
 The model is based on [TFS 1.2 player.cpp](https://github.com/otland/forgottenserver/blob/1.2/src/player.cpp#L3612).
 
@@ -123,3 +123,9 @@ snapshots update only one feed timestamp. Stale activity is ignored across the
 online and profile feeds. Profiles and skills appear on character pages.
 The highscore GET endpoint uses the same five-minute, per-data-centre
 [Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/) approach.
+
+An experimental browser cast viewer lives in [experiments/cast](experiments/cast/README.md).
+The `/cast` page uses OTClient Redemption's WebAssembly build with the
+`/api/cast/login` and `/api/cast/game` WebSocket bridges in the Worker.
+Run `npm.cmd run build:cast` before local development; `npm.cmd run deploy`
+rebuilds assets automatically. No database migration is needed.
