@@ -71,13 +71,15 @@ POST /api/characters?key=YOUR_SECRET
 Only newer profiles update an existing profile. Repeating an identical capture
 timestamp is a no-op, including if its contents differ. A partial batch affects
 only its named characters. An older profile may enrich descriptive fields but
-cannot replace activity from a newer online snapshot. At equal capture times,
-the profile takes precedence over the online feed.
+cannot replace status from a newer online snapshot. At equal capture times,
+the profile takes precedence for status; the online feed takes precedence for level.
 
-Profiles and online updates share one EXP baseline. The first observed real level
-sets the baseline; a subsequent increase counts once, irrespective of which feed
-reports it. Level losses lower that baseline, so recovery still counts as gains.
-Highscore skill values never contribute character EXP.
+Only online updates change the EXP baseline. The first online observation sets
+the baseline without awarding EXP; later online level losses lower it, so recovery
+still counts as gains. Profiles supply a display level until tracking starts, then
+cannot replace the tracked level. A fresh profile capture can contain an older
+saved level, so it must not create a false loss followed by a duplicate online gain.
+Highscore skill values never contribute character EXP. Existing baselines are retained.
 
 The response includes `ok`, `count`, `updated`, `writes`, `rowsRead`, `rowsWritten`.
 `updated` counts accepted new or newer profiles, including freshness-only updates.
@@ -95,7 +97,7 @@ The response includes `ok`, `count`, `updated`, `writes`, `rowsRead`, `rowsWritt
 }
 ```
 
-Send to `POST /api/highscores?key=YOUR_SECRET`. Supported skills: `magic`, `sword`, `club`,
+Send to `POST /api/highscores?key=YOUR_SECRET`. Supported skills: `magic`, `sword`, `axe`, `club`,
 `shielding`, `distance`. `value` is a non-negative integer skill value, never
 the character's level. Include the entire command result, up to 50 entries,
 with unique names and consecutive ranks starting at 1. This is separate from

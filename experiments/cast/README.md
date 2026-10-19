@@ -13,7 +13,7 @@ Mobile users get a centered **Load viewer** button before the first large transf
 Account and password are forced empty, and the message of the day is skipped.
 **Reload viewer** restarts the client and loads the list again. Close the tab to disconnect.
 The map starts at full brightness.
-Music starts at 50% volume. Discord, YouTube and Twitch open the configured
+Music starts at 20% volume. Discord, YouTube and Twitch open the configured
 community links in new tabs. The bottom hints, event schedule and boosted-creature
 panels are removed. Mouse coordinates account for the page header, allowing cast
 selection and buttons to be clicked. The client header

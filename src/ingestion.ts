@@ -36,6 +36,10 @@ export async function importOnline(db: D1Database, raw: unknown) {
 	const gate = `EXISTS (SELECT 1 FROM ingestion_state WHERE feed = 'online' AND import_id = ?3)`;
 	const fresh = `(c.profile_observed_at IS NULL OR c.profile_observed_at < ?2)
 		AND (c.level_observed_at IS NULL OR c.level_observed_at <= ?2)`;
+	// Profiles can contain an older saved level even with a fresh capture time.
+	// Once tracking starts, only the online feed may move the EXP baseline.
+	const levelFresh = `(c.level_observed_at IS NULL OR c.level_observed_at <= ?2)
+		AND (c.tracked_experience IS NOT NULL OR c.profile_observed_at IS NULL OR c.profile_observed_at <= ?2)`;
 	const statement = (sql: string) => db.prepare(sql).bind(data, observedAt, token);
 	const results = await db.batch<{ name: string }>([
 		watermark(db, "online", observedAt, token),
@@ -43,7 +47,7 @@ export async function importOnline(db: D1Database, raw: unknown) {
 			SELECT p.name, p.level, ?2, ?2, p.experience, ?2 FROM p
 			WHERE ${gate} AND NOT EXISTS (SELECT 1 FROM characters c WHERE c.name = p.name)`),
 		statement(`${rows} UPDATE characters AS c SET level = p.level, tracked_experience = p.experience, level_observed_at = ?2
-			FROM p WHERE c.name = p.name AND ${gate} AND ${fresh}
+			FROM p WHERE c.name = p.name AND ${gate} AND ${levelFresh}
 			AND (c.level != p.level OR c.tracked_experience IS NULL) RETURNING name`),
 		statement(`${rows} UPDATE characters AS c SET last_online = ?2
 			WHERE ${gate} AND ${fresh}
@@ -73,25 +77,22 @@ export async function importProfiles(db: D1Database, raw: unknown) {
 		AND p.observed_at >= COALESCE(c.level_observed_at, '')`;
 	const statusFresh = `c.profile_import_id = ?2 AND ${activityFresh}`;
 	const statement = (sql: string) => db.prepare(sql).bind(data, token);
-	const results = await db.batch<{ name: string; level_observed_at: string; profile_observed_at: string }>([
+	const results = await db.batch<{ name: string }>([
 		statement(`${rows} INSERT INTO characters
-			(name, level, first_seen, last_seen, tracked_experience, level_observed_at, vocation, vocation_observed_at,
+			(name, level, first_seen, last_seen, vocation, vocation_observed_at,
 			city, guild, sex, account_type, last_online, profile_observed_at, profile_import_id)
-			SELECT name, level, observed_at, observed_at, experience, observed_at, vocation, observed_at,
+			SELECT name, level, observed_at, observed_at, vocation, observed_at,
 			city, guild, sex, account_type, last_online,
 			observed_at, ?2 FROM p WHERE NOT EXISTS (SELECT 1 FROM characters c WHERE c.name = p.name)
 			RETURNING name`),
 		statement(`${rows} UPDATE characters AS c SET
-			level = CASE WHEN ${activityFresh} THEN p.level ELSE c.level END,
-			tracked_experience = CASE WHEN ${activityFresh} THEN p.experience ELSE c.tracked_experience END,
-			level_observed_at = CASE WHEN ${activityFresh} AND (c.level != p.level OR c.tracked_experience IS NULL)
-				THEN p.observed_at ELSE c.level_observed_at END,
+			level = CASE WHEN c.tracked_experience IS NULL AND ${activityFresh} THEN p.level ELSE c.level END,
 			vocation = p.vocation, vocation_observed_at = p.observed_at,
 			city = p.city, guild = p.guild, sex = p.sex, account_type = p.account_type,
 			last_online = CASE WHEN p.last_online > COALESCE(c.last_online, '') THEN p.last_online ELSE c.last_online END,
 			profile_observed_at = p.observed_at, profile_import_id = ?2
 			FROM p WHERE c.name = p.name AND (c.profile_observed_at IS NULL OR p.observed_at > c.profile_observed_at)
-			RETURNING name, level_observed_at, profile_observed_at`),
+			RETURNING name`),
 		statement(`${rows} DELETE FROM online WHERE character_name IN
 			(SELECT c.name FROM p JOIN characters c ON c.name = p.name WHERE ${statusFresh} AND p.status = 'offline')`),
 		statement(`${rows} INSERT INTO online (character_name, since)
@@ -99,9 +100,8 @@ export async function importProfiles(db: D1Database, raw: unknown) {
 			WHERE ${statusFresh} AND p.status = 'online'
 			AND NOT EXISTS (SELECT 1 FROM online o WHERE o.character_name = p.name)`),
 	]);
-	const changed = results[1].results.filter(row => row.level_observed_at === row.profile_observed_at).map(row => row.name);
 	return { ok: true, count: characters.length, updated: results[0].results.length + results[1].results.length,
-		...await reconcile(db, results, changed, new Date().toISOString()) };
+		...metrics(results) };
 }
 
 export async function importHighscores(db: D1Database, raw: unknown) {

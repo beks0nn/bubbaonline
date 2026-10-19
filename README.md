@@ -10,7 +10,7 @@ JSON examples, refresh guidance and response formats. Profile imports replace
 the removed `PATCH /api/characters/vocation` endpoint. The existing online and
 deathlist imports are still required.
 
-Highscores (`/highscores`) displays the imported rankings for Magic level, Sword,
+Highscores (`/highscores`) displays the imported rankings for Magic level, Sword, Axe,
 Club, Shielding and Distance, with links to character profiles and the capture
 time of each ranking. The page checks the selected skill every five minutes while
 visible and reuses recently viewed skills to avoid unnecessary requests.
@@ -26,11 +26,16 @@ Migration `0003_last_online.sql` adds a nullable column without backfilling hist
 Tracking begins when the updated Worker receives online updates.
 
 Power Gamers (`/power-gamers`) ranks the top 10 estimated net EXP totals over a rolling
-24 hours. The first online or profile level observation establishes a baseline without awarding
+24 hours. The first online level observation establishes a baseline without awarding
 EXP, including for existing and death-only characters. Upward changes record the
 difference between the two cumulative EXP thresholds. A level loss lowers the
 baseline; regaining those levels counts as a new gross gain. Baselines survive
-reconnects. Net EXP is gross observed gains minus estimated death losses, using
+reconnects. Profiles can supply a display level before tracking starts, but never
+change the EXP baseline: their saved level may lag behind the online feed.
+Existing baselines are retained. This prevents stale profiles from creating false
+losses and counting the same gained level repeatedly. Previously recorded duplicate
+gains expire from the ranking after 24 hours; the fix does not delete history.
+Net EXP is gross observed gains minus estimated death losses, using
 the rounded midpoint of each death's loss range. This midpoint is a ranking
 convention, not an inference about blessing counts. The API also returns gross
 gains, losses, and the resulting net range. Negative totals are red, positives

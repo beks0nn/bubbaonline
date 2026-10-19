@@ -27,7 +27,7 @@ g_settings.set('password', '')
 g_settings.set('locale', 'en')
 g_settings.set('ambientLight', 100)
 g_settings.set('enableLights', false)
-g_settings.set('musicSoundVolume', 50)
+g_settings.set('musicSoundVolume', 20)
 if g_resources.fileExists('/cast-online.lua') then dofile('/cast-online.lua') end
 `;
 const init = replaceOnce(packagedFile('/init.lua'), "g_modules.ensureModuleLoaded('corelib')", `g_modules.ensureModuleLoaded('corelib')\n${settings}`);

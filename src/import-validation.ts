@@ -2,7 +2,7 @@ import { experienceAtLevel } from "./experience";
 
 export class InputError extends Error {}
 
-export const SKILLS = ["magic", "sword", "club", "shielding", "distance"] as const;
+export const SKILLS = ["magic", "sword", "axe", "club", "shielding", "distance"] as const;
 export type Skill = typeof SKILLS[number];
 
 const VOCATIONS: Record<string, string> = {

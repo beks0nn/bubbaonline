@@ -49,7 +49,7 @@ function renderCharacter(character) {
     profileEl.textContent = details.join(" · ");
     profileEl.hidden = details.length === 0;
     const skillsEl = document.querySelector("#char-skills");
-    const labels = { magic: "Magic level", sword: "Sword", club: "Club", shielding: "Shielding", distance: "Distance" };
+    const labels = { magic: "Magic level", sword: "Sword", axe: "Axe", club: "Club", shielding: "Shielding", distance: "Distance" };
     const skills = character.skills ?? [];
     skillsEl.textContent = skills.map(entry => `${labels[entry.skill]}: ${entry.value} (#${entry.rank})`).join(" · ");
     skillsEl.hidden = skills.length === 0;
