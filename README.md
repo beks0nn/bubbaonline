@@ -1,5 +1,11 @@
 # bubbaonline
 
+Vocations (`/vocations`) shows vocation counts and percentages for all recorded
+characters, including offline characters. Promotions are grouped with base vocations
+by default and can be shown separately. Unknown and no-vocation characters remain
+separate. The aggregate is cached for 15 minutes per edge location to limit reads;
+this page adds no database writes or migrations.
+
 Last online is shown on the character list and profiles. Online players show
 "Online now"; offline players show the latest imported Last online timestamp or
 detected offline transition, in the visitor's local time zone. Polling timestamps

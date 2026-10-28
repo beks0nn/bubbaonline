@@ -44,6 +44,7 @@ beforeEach(async () => {
 	vi.useFakeTimers({ toFake: ["Date"] });
 	vi.setSystemTime(new Date(at(59)));
 	for (const skill of SKILLS) await caches.default.delete(`https://example.com/api/highscores?skill=${skill}`);
+	await caches.default.delete("https://example.com/api/class-distribution");
 	await env.DB.batch(["highscore_entries", "ingestion_state", "level_drops", "level_changes", "deaths", "online", "characters"]
 		.map(table => env.DB.prepare(`DELETE FROM ${table}`)));
 });
@@ -243,6 +244,39 @@ describe("highscores", () => {
 		expect(await cached.json()).toEqual(first);
 		await highscores(11, [entry("addinator", 1, 85)]);
 		expect((await json("/api/highscores?skill=magic")).entries[0].value).toBe(85);
+	});
+});
+
+describe("class distribution", () => {
+	it("counts characters once, groups promotions, and distinguishes unknown from no vocation", async () => {
+		await profiles(10, [
+			profile({ name: "Knight", vocation: "K" }), profile({ name: "Elite", vocation: "EK", status: "offline" }),
+			profile({ name: "Paladin", vocation: "RP" }), profile({ name: "Sorcerer", vocation: "MS" }),
+			profile({ name: "Druid", vocation: "D" }), profile({ name: "Rook", vocation: "None" }),
+		]);
+		await online(11, [{ name: "Unknown", level: 20 }]);
+		await highscores(12, [entry("Elite", 1, 80, "EK")], "sword");
+		await highscores(12, [entry("Elite", 1, 80, "EK")], "axe");
+		const result = await json("/api/class-distribution");
+		expect(result).toMatchObject({ total: 7, unknown: 1, no_vocation: 1, classes: [
+			{ name: "Knight", count: 2, base: 1, promoted: 1 },
+			{ name: "Paladin", count: 1, base: 0, promoted: 1 },
+			{ name: "Sorcerer", count: 1, base: 0, promoted: 1 },
+			{ name: "Druid", count: 1, base: 1, promoted: 0 },
+		] });
+	});
+
+	it("handles empty data and shares a cached aggregate regardless of query parameters", async () => {
+		const first = await json("/api/class-distribution");
+		expect(first).toMatchObject({ total: 0, unknown: 0, no_vocation: 0 });
+		expect(first.classes.every((group: { count: number }) => group.count === 0)).toBe(true);
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new Request("https://example.com/api/class-distribution?visitor=2"), {
+			...env, OTCLIENT_SECRET: secret, DB: { prepare: () => { throw new Error("Must use cache"); } } as unknown as D1Database,
+		}, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(await response.json()).toEqual(first);
+		expect(response.headers.get("Cache-Control")).toContain("s-maxage=900");
 	});
 });
 

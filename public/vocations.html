@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocation Distribution - BubbaOnline</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #111; color: #eee; }
+        header { border-bottom: 1px solid #2a2a2a; background: #181818; }
+        .header-inner { max-width: 1100px; margin: 0 auto; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+        .logo { font-size: 22px; font-weight: 700; }
+        nav { display: flex; flex-wrap: wrap; gap: 6px; }
+        nav a { color: #aaa; text-decoration: none; padding: 8px 12px; border-radius: 6px; }
+        nav a:hover, nav a.active { color: #fff; background: #292929; }
+        main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+        h1 { margin: 0 0 10px; font-size: 28px; }
+        .note { color: #aaa; font-size: 13px; line-height: 1.6; }
+        .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 24px 0; }
+        .stat { border: 1px solid #2a2a2a; border-radius: 8px; background: #181818; padding: 18px; }
+        .stat span { display: block; color: #aaa; font-size: 13px; }
+        .stat strong { display: block; font-size: 28px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+        .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; min-height: 40px; }
+        label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+        input { accent-color: #9bd7a6; width: 17px; height: 17px; }
+        button { font: inherit; color: #eee; background: #181818; border: 1px solid #444; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+        button:hover { background: #292929; }
+        :focus-visible { outline: 2px solid #9bd7a6; outline-offset: 3px; }
+        #status { min-height: 42px; margin: 8px 0; }
+        .table { border: 1px solid #2a2a2a; border-radius: 8px; overflow: hidden; background: #181818; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { padding: 16px; border-bottom: 1px solid #292929; text-align: left; }
+        thead th { color: #aaa; font-size: 12px; text-transform: uppercase; font-weight: 400; background: #151515; }
+        th:first-child { width: 60%; }
+        tbody th { font-size: 14px; font-weight: 400; }
+        tbody tr:last-child > * { border-bottom: none; }
+        .number { text-align: right; font-variant-numeric: tabular-nums; }
+        .track { margin-top: 10px; background: #282828; height: 9px; border-radius: 4px; overflow: hidden; }
+        .fill { height: 100%; background: var(--class-color); border-radius: 4px; }
+        .message { color: #aaa; }
+        @media (max-width: 520px) {
+            main { padding: 24px 16px; }
+            .summary { gap: 6px; }
+            .stat { padding: 12px 8px; }
+            .stat strong { font-size: 24px; }
+            th, td { padding: 12px 8px; }
+            th:first-child { width: 50%; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">BubbaOnline</div>
+            <nav aria-label="Main navigation">
+                <a href="/">Online</a>
+                <a href="/characters">Characters</a>
+                <a href="/top-frags">Top Frags</a>
+                <a href="/power-gamers">Power Gamers</a>
+                <a href="/highscores">Highscores</a>
+                <a href="/vocations" class="active" aria-current="page">Vocations</a>
+                <a href="/cast">Casts</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        <h1>Vocation distribution</h1>
+        <p class="note">All recorded characters, including offline characters. Percentages include unknown vocations.</p>
+        <div class="summary">
+            <div class="stat"><span>Characters</span><strong id="total">—</strong></div>
+            <div class="stat"><span>Vocation known</span><strong id="known">—</strong></div>
+            <div class="stat"><span>Unknown</span><strong id="unknown">—</strong></div>
+        </div>
+        <div class="controls">
+            <label><input id="promotions" type="checkbox">Show promotions separately</label>
+            <button id="retry" type="button" hidden>Retry</button>
+        </div>
+        <p id="status" class="note" role="status">Loading vocation distribution…</p>
+        <div class="table" id="distribution" aria-busy="true">
+            <table aria-label="Vocation distribution among recorded characters">
+                <thead><tr><th scope="col">Vocation</th><th scope="col" class="number">Characters</th><th scope="col" class="number">Share</th></tr></thead>
+                <tbody id="class-list"><tr><td colspan="3" class="message">Loading…</td></tr></tbody>
+            </table>
+        </div>
+        <noscript><p>Enable JavaScript to view vocation distribution.</p></noscript>
+    </main>
+    <script src="/vocations.js"></script>
+</body>
+</html>

@@ -3,6 +3,7 @@ import { InputError, skill } from "./import-validation";
 import { estimateDeathLoss, reconcileDeathObservations } from "./death-loss";
 import { getPowerGamers } from "./power-gamers";
 import { handleCast } from "./cast";
+import { getClassDistribution } from "./class-distribution";
 
 interface WorkerEnv extends Env {
 	OTCLIENT_SECRET: string;
@@ -105,6 +106,18 @@ export default {
 		if (pathname.startsWith("/api/cast/")) return handleCast(request, env);
 
 		// --- GET endpoints ---
+
+		if (pathname === "/api/class-distribution" && request.method === "GET") {
+			// Promotion grouping runs in the browser, sharing one cached aggregate.
+			const cacheKey = new Request(new URL("/api/class-distribution", url).toString());
+			const cached = await caches.default.match(cacheKey);
+			if (cached) return cached;
+			const response = Response.json(await getClassDistribution(env.DB), {
+				headers: { "Cache-Control": "public, max-age=0, s-maxage=900" },
+			});
+			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+			return response;
+		}
 
 		if (pathname === "/api/online" && request.method === "GET") {
 			const { results } = await env.DB.prepare(

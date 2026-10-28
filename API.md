@@ -16,10 +16,25 @@ header is required. Reads are public.
 | GET | `/api/online` | Current online players |
 | GET | `/api/top-frags` | Existing frag ranking |
 | GET | `/api/power-gamers` | Existing top 10 estimated net EXP ranking |
+| GET | `/api/class-distribution` | Counts by base vocation and promotion across all recorded characters |
 
 `PATCH /api/characters/vocation` has been removed and returns 404. Import
 vocations through profiles or highscores instead. Keep both online and deathlist
 imports: neither new command replaces those feeds.
+
+## Vocation distribution
+
+`GET /api/class-distribution` returns `generated_at`, `total`, `unknown`,
+`no_vocation`, and `classes`. Each vocation has `name`, `promotion`, `base`,
+`promoted`, and `count` (base plus promoted). Counts include offline characters
+and count each character once regardless of how many highscores contain them.
+Unknown/unrecognized vocations are separate from the explicit `None` vocation.
+The website uses all recorded characters as the percentage denominator.
+
+One aggregate query reads the character table on a cache miss. Responses share a
+15-minute edge cache per data centre, regardless of query parameters. There are
+no added database writes, background jobs, or migrations. Promotion grouping is
+done in the browser and makes no additional requests.
 
 ## Character profiles
 
