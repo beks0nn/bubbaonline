@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/favicon.ico?v=1" sizes="16x16 32x32">
+    <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
+    <title>Kills - BubbaOnline</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #eee;
+        }
+
+        header {
+            border-bottom: 1px solid #2a2a2a;
+            background: #181818;
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        nav {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #aaa;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        nav a:hover,
+        nav a.active {
+            color: #fff;
+            background: #292929;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: 28px;
+        }
+
+        .description {
+            color: #999;
+            margin: 0 0 16px;
+        }
+
+        .filter {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            color: #aaa;
+        }
+
+        .table {
+            width: 100%;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #181818;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 80px 1fr 100px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #242424;
+        }
+
+        .row:last-child {
+            border-bottom: none;
+        }
+
+        .row.header {
+            color: #888;
+            font-size: 13px;
+            text-transform: uppercase;
+            background: #151515;
+        }
+
+        .data-list .row:nth-child(even) {
+            background: #1c1c1c;
+        }
+
+        .frags {
+            text-align: right;
+            color: #aaa;
+        }
+        .frag-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 24px 0 16px; }
+        .frag-tabs { display: inline-flex; padding: 4px; gap: 4px; background: #181818; border: 1px solid #333; border-radius: 9px; }
+        .frag-tabs button { border: 0; border-radius: 5px; padding: 10px 18px; color: #aaa; background: transparent; }
+        .frag-tabs button:hover { color: #eee; background: #242424; }
+        .frag-tabs button[aria-selected="true"] { color: #fff; background: #353535; }
+        .frag-options { display: flex; align-items: center; gap: 12px; }
+        [role="tabpanel"] { min-height: 320px; }
+        .latest-table { overflow-x: auto; }
+        .latest-table table { width: 100%; min-width: 620px; border-collapse: collapse; }
+        .latest-table th, .latest-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #242424; }
+        .latest-table th { color: #888; font-size: 13px; text-transform: uppercase; font-weight: 400; background: #151515; }
+        .latest-table tbody tr:nth-child(even) { background: #1c1c1c; }
+        .latest-table tbody tr:last-child td { border-bottom: none; }
+        .latest-table .level { text-align: right; font-variant-numeric: tabular-nums; }
+        .latest-table time { white-space: nowrap; color: #aaa; }
+        .table a { color: #eee; text-decoration: none; }
+        .table a:hover { text-decoration: underline; }
+        .message { padding: 16px; color: #aaa; }
+        #frag-status { min-height: 20px; color: #999; font-size: 13px; }
+        button { font: inherit; color: #eee; background: #181818; border: 1px solid #444; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+        :focus-visible { outline: 2px solid #9bd7a6; outline-offset: 3px; }
+            .site-brand { display: grid; gap: 5px; flex-shrink: 0; }
+        .support-link { display: inline-flex; align-items: center; gap: 6px; width: fit-content; color: #bfa878; font-size: 12px; font-weight: 400; line-height: 1.4; text-decoration: none; }
+        .support-link svg { width: 15px; height: 15px; flex-shrink: 0; }
+        .support-link:hover { color: #eed29b; text-decoration: underline; }
+        .support-link:focus-visible { outline: 2px solid #eed29b; outline-offset: 4px; border-radius: 2px; }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="site-brand">
+                <div class="logo">BubbaOnline</div>
+                <a class="support-link" href="https://buymeacoffee.com/bksonn" target="_blank" rel="noopener noreferrer" title="Support BubbaOnline (opens in a new tab)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h10v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V7Z M14 8h1a2.5 2.5 0 0 1 0 5h-1 M3 18h13 M7 2v2 M11 2v2"/></svg><span>Buy me a coffee</span></a>
+            </div>
+
+            <nav>
+                <a href="/">Online</a>
+                <a href="/characters">Characters</a>
+                <a href="/kills" class="active">Kills</a>
+                <a href="/power-gamers">Power Gamers</a>
+                <a href="/highscores">Highscores</a>
+                <a href="/vocations">Vocations</a>
+                <a href="/cast">Casts</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <h1>Kills</h1>
+        <p class="description">Recorded kills and deaths, level 8 and above.</p>
+
+        <div class="frag-controls">
+            <div class="frag-tabs" role="tablist" aria-label="Kill and death views">
+                <button id="latest-tab" type="button" role="tab" aria-controls="latest-panel" aria-selected="true" data-view="latest">Latest deaths</button>
+                <button id="most-tab" type="button" role="tab" aria-controls="most-panel" aria-selected="false" tabindex="-1" data-view="most">Most kills</button>
+            </div>
+            <div class="frag-options">
+                <label class="filter">
+                    <input id="players-only" type="checkbox">
+                    Players only
+                </label>
+                <button id="retry" type="button" hidden>Retry</button>
+            </div>
+        </div>
+        <p id="frag-status" role="status">Loading deaths…</p>
+
+        <section id="most-panel" role="tabpanel" aria-labelledby="most-tab" tabindex="0" hidden>
+        <div class="table">
+            <div class="row header">
+                <div>Rank</div>
+                <div>Killer</div>
+                <div class="frags">Kills</div>
+            </div>
+
+            <div id="frag-list" class="data-list"></div>
+        </div>
+        </section>
+
+        <section id="latest-panel" role="tabpanel" aria-labelledby="latest-tab" tabindex="0">
+        <div class="table latest-table">
+            <table aria-label="Latest deaths">
+                <thead><tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">Victim</th>
+                    <th scope="col" class="level">Level</th>
+                    <th scope="col">Killer</th>
+                </tr></thead>
+                <tbody id="latest-frag-list"></tbody>
+            </table>
+        </div>
+        </section>
+    </main>
+
+    <script src="/kills.js"></script>
+</body>
+</html>

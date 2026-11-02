@@ -10,17 +10,28 @@ header is required. Reads are public.
 | POST | `/api/highscores` | Replace one skill's complete ranking snapshot |
 | GET | `/api/highscores?skill=magic` | Read a skill ranking |
 | POST | `/api/online` | Existing complete online snapshot; now accepts `observed_at` |
-| POST | `/api/deathlist` | Existing deathlist text import, unchanged |
+| POST | `/api/deathlist` | Deathlist text import; Swedish server clock normalized to UTC |
 | GET | `/api/characters` | Character list, now including profile fields |
 | GET | `/api/characters/:name` | Profile, deaths and current ranked skills |
 | GET | `/api/online` | Current online players |
 | GET | `/api/top-frags` | Existing frag ranking |
+| GET | `/api/latest-frags` | Latest 20 recorded deaths, newest first, level 8 and above |
 | GET | `/api/power-gamers` | Existing top 10 estimated net EXP ranking |
 | GET | `/api/class-distribution` | Counts by base vocation and promotion across all recorded characters |
 
 `PATCH /api/characters/vocation` has been removed and returns 404. Import
 vocations through profiles or highscores instead. Keep both online and deathlist
 imports: neither new command replaces those feeds.
+
+## Kills and deaths
+
+`GET /api/latest-frags` returns an array of `{ name, date, level, killer }`, where
+`name` is the victim and `level` is their level at death. Results are ordered by
+death time descending, then death ID descending, and limited to 20.
+Both frag endpoints accept `?playersOnly=true`, excluding killers whose names
+start with `a ` or `an ` (the existing monster-name convention), before applying
+their limits. Both require victim level 8 or above and cache each filter variant
+for five minutes per edge location. No new writes or migration are needed.
 
 ## Vocation distribution
 
@@ -188,8 +199,16 @@ baseline updates, including reconnects. Gains use the capture timestamp.
   writing any rows. Authentication failures return 401. Unknown API routes,
   including the removed PATCH route, return 404.
 
-Apply migration `0008_profiles_highscores.sql` before deploying this Worker.
-It preserves existing characters, deaths and EXP history. No new bindings are required.
+Deathlist text timestamps are interpreted in `Europe/Stockholm` (including the
+date's summer/winter offset), then stored and returned as UTC. Send the original
+in-game text; do not pre-convert it. The repeated autumn hour uses its earlier
+occurrence because the text has no offset. Invalid dates/skipped spring times
+return 400 before writing. Other endpoints still require explicit ISO offsets.
+
+Pause deathlist uploads, apply all pending migrations (including
+`0010_death_times_utc.sql`), deploy, then resume uploads. The new migration fixes
+existing death dates and clears their old observation matches; it preserves
+death IDs/counts and EXP gain history. No new bindings are required.
 
 ```powershell
 npx.cmd wrangler d1 migrations apply bubbaonline --remote

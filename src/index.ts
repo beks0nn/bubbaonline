@@ -4,6 +4,7 @@ import { estimateDeathLoss, reconcileDeathObservations } from "./death-loss";
 import { getPowerGamers } from "./power-gamers";
 import { handleCast } from "./cast";
 import { getClassDistribution } from "./class-distribution";
+import { deathTimeToUtc } from "./death-time";
 
 interface WorkerEnv extends Env {
 	OTCLIENT_SECRET: string;
@@ -30,8 +31,9 @@ const MONTHS: Record<string, string> = {
 };
 
 function parseDeathlistText(text: string): { name: string; deaths: Death[] } {
+	if (typeof text !== "string") throw new InputError("Deathlist text must be a string");
 	const nameMatch = text.match(/^Deathlist for player,\s*([^.]+)\./);
-	if (!nameMatch) throw new Error("Could not parse character name from deathlist text");
+	if (!nameMatch) throw new InputError("Could not parse character name from deathlist text");
 	const name = nameMatch[1].trim();
 
 	const deaths: Death[] = [];
@@ -44,7 +46,7 @@ function parseDeathlistText(text: string): { name: string; deaths: Death[] } {
 		if (!month) continue; // unrecognized month name, skip rather than crash the whole batch
 
 		const paddedDay = day.padStart(2, "0");
-		const isoDate = `${year}-${month}-${paddedDay}T${hh}:${mm}:${ss}Z`;
+		const isoDate = deathTimeToUtc(`${year}-${month}-${paddedDay}T${hh}:${mm}:${ss}`);
 
 		deaths.push({ date: isoDate, level: parseInt(level, 10), killer: killer.trim() });
 	}
@@ -141,9 +143,19 @@ export default {
 			return Response.json(results);
 		}
 
-		if (pathname === "/api/top-frags" && request.method === "GET") {
+		if (["/api/top-frags", "/api/latest-frags"].includes(pathname) && request.method === "GET") {
 			const playersOnly = url.searchParams.get("playersOnly") === "true";
-			const { results } = await env.DB.prepare(`
+			const cacheKey = new Request(new URL(`${pathname}?playersOnly=${playersOnly}&times=utc-v1`, url).toString());
+			const cached = await caches.default.match(cacheKey);
+			if (cached) return cached;
+			const query = pathname === "/api/latest-frags" ? `
+				SELECT c.name, d.date, d.level, d.killer
+				FROM deaths d JOIN characters c ON c.id = d.character_id
+				WHERE d.level >= 8
+					AND (? = 0 OR (d.killer NOT LIKE 'a %' AND d.killer NOT LIKE 'an %'))
+				ORDER BY d.date DESC, d.id DESC
+				LIMIT 20
+			` : `
 				SELECT killer, COUNT(*) AS frags
 				FROM deaths
 				WHERE level >= 8
@@ -151,13 +163,18 @@ export default {
 				GROUP BY killer
 				ORDER BY frags DESC, killer ASC
 				LIMIT 15
-			`).bind(playersOnly ? 1 : 0).all<{ killer: string; frags: number }>();
-			return Response.json(results);
+			`;
+			const { results } = await env.DB.prepare(query).bind(playersOnly ? 1 : 0).all();
+			const response = Response.json(results, {
+				headers: { "Cache-Control": "public, max-age=0, s-maxage=300" },
+			});
+			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+			return response;
 		}
 
 		if (pathname === "/api/power-gamers" && request.method === "GET") {
 			// One shared cache key per origin, regardless of visitor query parameters.
-			const cacheKey = new Request(new URL("/api/power-gamers?model=net-v1", url).toString());
+			const cacheKey = new Request(new URL("/api/power-gamers?model=net-v2", url).toString());
 			const cached = await caches.default.match(cacheKey);
 			if (cached) return cached;
 
@@ -240,8 +257,17 @@ export default {
 		if (pathname === "/api/deathlist" && request.method === "POST") {
 			if (!checkAuth(request, env, url)) return new Response("Unauthorized", { status: 401 });
 
-			const payload = await request.json<DeathlistPayload>();
-			const { name, deaths } = parseDeathlistText(payload.text);
+			let parsed: ReturnType<typeof parseDeathlistText>;
+			try {
+				const payload = await request.json<DeathlistPayload>();
+				parsed = parseDeathlistText(payload?.text);
+			} catch (error) {
+				if (error instanceof InputError || error instanceof SyntaxError) {
+					return Response.json({ error: error.message }, { status: 400 });
+				}
+				throw error;
+			}
+			const { name, deaths } = parsed;
 
 			if (deaths.length === 0) {
 				return Response.json({ ok: true, name, inserted: 0 });
@@ -288,11 +314,6 @@ export default {
 
 		if (pathname === "/characters") {
 			url.pathname = "/characters";
-			return env.ASSETS.fetch(new Request(url, request));
-		}
-
-		if (pathname === "/top-frags") {
-			url.pathname = "/top-frags";
 			return env.ASSETS.fetch(new Request(url, request));
 		}
 

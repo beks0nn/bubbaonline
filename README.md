@@ -1,5 +1,14 @@
 # bubbaonline
 
+Kills (`/kills`) has Most kills and Latest deaths tabs. Latest deaths shows the
+latest 20 recorded deaths (level 8 and above), with victim links, death level,
+killer links for players, and local timestamps. The shared Players only toggle
+applies to either view. Tabs support keyboard navigation and direct links such as
+`/kills#latest`. Only the selected view is fetched and refreshed while visible;
+recent results are reused when switching tabs. Both endpoints are cached for five
+minutes. Latest deaths reuses the existing death-date index;
+no database migration or additional ingestion is required.
+
 Vocations (`/vocations`) shows vocation counts and percentages for all recorded
 characters, including offline characters. Promotions are grouped with base vocations
 by default and can be shown separately. Unknown and no-vocation characters remain
@@ -108,8 +117,27 @@ online level, it falls after the previous observation and within 120 seconds of
 the new observation, and there is only one known death in that interval.
 Either arrival order works. A newly discovered second death invalidates an
 ambiguous match. Matches are stored on death rows and survive snapshot cleanup.
-All timestamps currently assume the deathlist clock is UTC, as in the existing
-importer. A different server timezone must be normalized before correlating.
+Deathlist text uses the server's `Europe/Stockholm` clock. The importer converts
+each date to UTC using that date's summer/winter offset before storing or
+correlating it. Browsers display dates in the viewer's local timezone. During
+the repeated autumn hour, the text cannot distinguish the two occurrences;
+the importer consistently chooses the earlier (summer-time) occurrence.
+Impossible dates and the skipped spring hour are rejected with HTTP 400.
+
+For the timezone fix, pause deathlist uploads, apply migration
+`0010_death_times_utc.sql`, deploy the updated Worker, then resume uploads:
+
+```powershell
+npx.cmd wrangler d1 migrations apply bubbaonline --remote
+npm.cmd run deploy
+```
+
+The migration corrects existing death dates using the modern Swedish DST rules
+and clears correlations made against the old timestamps. Death IDs and counts
+are preserved. Old deaths use the normal loss estimate until a valid observation
+can be matched again. Online/profile timestamps are already UTC and are unchanged.
+Do not upload between migration and deployment: the old importer would store
+incorrect timestamps again. No additional recurring D1 queries are needed.
 
 A compatible observation bounds post-death EXP from above, since hunting may
 have resumed before the poll. This can narrow both the loss and pre-death EXP

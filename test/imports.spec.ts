@@ -45,6 +45,9 @@ beforeEach(async () => {
 	vi.setSystemTime(new Date(at(59)));
 	for (const skill of SKILLS) await caches.default.delete(`https://example.com/api/highscores?skill=${skill}`);
 	await caches.default.delete("https://example.com/api/class-distribution");
+	for (const endpoint of ["top-frags", "latest-frags"]) {
+		for (const filter of [false, true]) await caches.default.delete(`https://example.com/api/${endpoint}?playersOnly=${filter}&times=utc-v1`);
+	}
 	await env.DB.batch(["highscore_entries", "ingestion_state", "level_drops", "level_changes", "deaths", "online", "characters"]
 		.map(table => env.DB.prepare(`DELETE FROM ${table}`)));
 });
@@ -277,6 +280,54 @@ describe("class distribution", () => {
 		await waitOnExecutionContext(ctx);
 		expect(await response.json()).toEqual(first);
 		expect(response.headers.get("Cache-Control")).toContain("s-maxage=900");
+	});
+});
+
+describe("latest frags", () => {
+	it("returns the latest 20 eligible deaths by death time and filters before limiting", async () => {
+		await profiles(1);
+		const id = await env.DB.prepare("SELECT id FROM characters WHERE name = 'bksonn'").first<number>("id");
+		// Insert backwards so insertion order differs from death time.
+		await env.DB.batch(Array.from({ length: 50 }, (_, index) => {
+			const minute = 49 - index;
+			return env.DB.prepare("INSERT INTO deaths (character_id, date, level, killer) VALUES (?, ?, 100, ?)")
+				.bind(id, at(minute), minute < 25 ? "Player Killer" : minute % 2 ? "a dragon" : "an orc");
+		}));
+		await env.DB.prepare("INSERT INTO deaths (character_id, date, level, killer) VALUES (?, ?, 7, 'Player Killer')")
+			.bind(id, at(55)).run();
+		const all = await json("/api/latest-frags");
+		expect(all).toHaveLength(20);
+		expect(all[0]).toEqual({ name: "bksonn", date: at(49), level: 100, killer: "a dragon" });
+		expect(all[19].date).toBe(at(30));
+		const players = await json("/api/latest-frags?playersOnly=true");
+		expect(players).toHaveLength(20);
+		expect(players.every((death: { killer: string }) => death.killer === "Player Killer")).toBe(true);
+		expect(players[0].date).toBe(at(24));
+		expect(players[19].date).toBe(at(5));
+		expect(await json("/api/top-frags?playersOnly=true")).toEqual([{ killer: "Player Killer", frags: 25 }]);
+	});
+
+	it("returns empty lists before deaths are recorded", async () => {
+		expect(await json("/api/latest-frags")).toEqual([]);
+		expect(await json("/api/latest-frags?playersOnly=true")).toEqual([]);
+	});
+
+	it("caches each section and filter independently with canonical query keys", async () => {
+		await profiles(1);
+		await env.DB.prepare(`INSERT INTO deaths (character_id, date, level, killer)
+			SELECT id, ?1, 100, 'a dragon' FROM characters WHERE name = 'bksonn'`).bind(at(2)).run();
+		for (const endpoint of ["top-frags", "latest-frags"]) {
+			const all = await json(`/api/${endpoint}`);
+			expect(all).toHaveLength(1);
+			expect(await json(`/api/${endpoint}?playersOnly=true`)).toEqual([]);
+			const ctx = createExecutionContext();
+			const response = await worker.fetch(new Request(`https://example.com/api/${endpoint}?playersOnly=false&visitor=2`), {
+				...env, OTCLIENT_SECRET: secret, DB: { prepare: () => { throw new Error("Must use cache"); } } as unknown as D1Database,
+			}, ctx);
+			await waitOnExecutionContext(ctx);
+			expect(await response.json()).toEqual(all);
+			expect(response.headers.get("Cache-Control")).toContain("s-maxage=300");
+		}
 	});
 });
 

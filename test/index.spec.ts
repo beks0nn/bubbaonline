@@ -51,7 +51,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-    await caches.default.delete("https://example.com/api/power-gamers?model=net-v1");
+    await caches.default.delete("https://example.com/api/power-gamers?model=net-v2");
     await env.DB.batch([
         env.DB.prepare("DELETE FROM highscore_entries"),
         env.DB.prepare("DELETE FROM ingestion_state"),
@@ -131,7 +131,7 @@ interface PowerGamer {
 
 async function rankings() {
     // Most tests exercise fresh aggregation; cache behaviour is tested separately.
-    await caches.default.delete("https://example.com/api/power-gamers?model=net-v1");
+    await caches.default.delete("https://example.com/api/power-gamers?model=net-v2");
     return (await request("/api/power-gamers")).json<{
         since: string; until: string; players: PowerGamer[];
     }>();
@@ -292,7 +292,9 @@ async function recordedDeaths() {
 }
 
 function deathText(time = "10:00:30", level = 100) {
-    return `Deathlist for player, Legacy. 1st October 2026 ${time} Died at Level ${level} by a dragon.`;
+    // Fixture observations use UTC; the game's October 1 clock is two hours ahead.
+    const wallTime = new Date(Date.parse(`2026-10-01T${time}Z`) + 2 * 3_600_000).toISOString().slice(11, 19);
+    return `Deathlist for player, Legacy. 1st October 2026 ${wallTime} Died at Level ${level} by a dragon.`;
 }
 
 describe("death observation correlation", () => {
@@ -389,7 +391,7 @@ describe("net Power Gamers ranking", () => {
         await observe([{ name: "Legacy", level: 100 }], "2026-10-01T09:00:00Z");
         await observe([{ name: "Legacy", level: 101 }], "2026-10-01T10:00:00Z");
         vi.setSystemTime(new Date("2026-10-01T11:00:00Z"));
-        const text = deathText("10:01:00", 101) + " 1st October 2026 10:02:00 Died at Level 101 by a dragon.";
+        const text = deathText("10:01:00", 101) + " 1st October 2026 12:02:00 Died at Level 101 by a dragon.";
         await request("/api/deathlist", { text });
         const player = (await rankings()).players[0];
         expect(player.experience_gained).toBe(485200);
@@ -427,8 +429,8 @@ describe("net Power Gamers ranking", () => {
     it("includes only deaths within the same rolling window, excluding future entries", async () => {
         vi.setSystemTime(new Date("2026-10-02T10:00:00Z"));
         await request("/api/deathlist", { text: deathText("10:00:00") +
-            " 1st October 2026 11:00:00 Died at Level 100 by a dragon." +
-            " 2nd October 2026 11:00:00 Died at Level 100 by a dragon." });
+            " 1st October 2026 13:00:00 Died at Level 100 by a dragon." +
+            " 2nd October 2026 13:00:00 Died at Level 100 by a dragon." });
         expect((await rankings()).players[0].deaths).toBe(1);
         vi.setSystemTime(new Date("2026-10-02T11:00:00Z"));
         // The earlier death expires as the formerly future death enters the window.
